@@ -296,6 +296,10 @@ public final class DiscoverVariantsFromContigAlignmentsSAMSpark extends GATKSpar
                 evaluateIntervalsAgainstTruth(assembledIntervals, trueBreakpoints, localLogger);
             }
 
+            final List<AlignedContig> alignedContigsList =
+                    alignedContigs.filter(tig -> tig.alignmentIntervals.size() > 1).collect();
+            evaluateAlignedContigsAgainstTruth(alignedContigsList, sequenceDictionary, trueBreakpoints, localLogger);
+
             final SVIntervalTree<String> narlyBreakpoints =
                     readBreakpointsFromNarls(narlsAndSources.map(Tuple2::_1).collect(), sequenceDictionary, parameters.truthIntervalPadding);
 
@@ -385,6 +389,37 @@ public final class DiscoverVariantsFromContigAlignmentsSAMSpark extends GATKSpar
         final float falseNeg = 1.f - trueBreakpoints.overlapFraction(narlyBreakpoints);
         final int nTrue = trueBreakpoints.size();
         localLogger.info("Breakpoint false negative rate = " + falseNeg + " (" + Math.round(falseNeg*nTrue) + "/" + nTrue + ")");
+    }
+
+    public static void evaluateAlignedContigsAgainstTruth( final List<AlignedContig> alignedContigs,
+                                                           final SAMSequenceDictionary dictionary,
+                                                           final SVIntervalTree<String> trueBreakpoints,
+                                                           final Logger localLogger ) {
+        final int A_HEALTHY_CHUNK = 20;
+        final SVIntervalTree<Integer> intervals = new SVIntervalTree<>();
+        for ( final AlignedContig contig : alignedContigs ) {
+            final Iterator<AlignmentInterval> intervalIterator = contig.alignmentIntervals.iterator();
+            if ( !intervalIterator.hasNext() ) continue;
+            AlignmentInterval prev = intervalIterator.next();
+            while ( intervalIterator.hasNext() ) {
+                final AlignmentInterval cur = intervalIterator.next();
+                if ( cur.referenceSpan.getEnd() >= prev.referenceSpan.getEnd() + A_HEALTHY_CHUNK ) {
+                    final int prevContigId = dictionary.getSequenceIndex(prev.referenceSpan.getContig());
+                    final int prevPos = prev.forwardStrand ? prev.referenceSpan.getEnd() : prev.referenceSpan.getStart();
+                    intervals.put(new SVInterval(prevContigId, prevPos, prevPos + 1), null);
+                    final int curContigId = dictionary.getSequenceIndex(cur.referenceSpan.getContig());
+                    final int curPos = cur.forwardStrand ? cur.referenceSpan.getStart() : cur.referenceSpan.getEnd();
+                    intervals.put(new SVInterval(curContigId, curPos, curPos + 1), null);
+                }
+                prev = cur;
+            }
+        }
+        final float falsePos = 1.f - intervals.overlapFraction(trueBreakpoints);
+        final int nBreakpoints = intervals.size();
+        localLogger.info("Chimeric contig false positive rate = " + falsePos + " (" + Math.round(falsePos*nBreakpoints) + "/" + nBreakpoints + ")");
+        final float falseNeg = 1.f - trueBreakpoints.overlapFraction(intervals);
+        final int nTrue = trueBreakpoints.size();
+        localLogger.info("Chimeric contig false negative rate = " + falseNeg + " (" + Math.round(falseNeg*nTrue) + "/" + nTrue + ")");
     }
 
     public static void evaluateIntervalsAgainstTruth( final List<SVInterval> assembledIntervals,
