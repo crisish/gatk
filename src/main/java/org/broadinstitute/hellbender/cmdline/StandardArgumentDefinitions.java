@@ -22,6 +22,7 @@ public final class StandardArgumentDefinitions {
     public static final String READ_FILTER_LONG_NAME = "read-filter";
     public static final String DISABLE_READ_FILTER_LONG_NAME = "disable-read-filter";
     public static final String DISABLE_TOOL_DEFAULT_READ_FILTERS = "disable-tool-default-read-filters";
+    public static final String DISABLE_TOOL_DEFAULT_ANNOTATIONS = "disable-tool-default-annotations";
     public static final String CREATE_OUTPUT_BAM_INDEX_LONG_NAME = "create-output-bam-index";
     public static final String CREATE_OUTPUT_BAM_MD5_LONG_NAME = "create-output-bam-md5";
     public static final String CREATE_OUTPUT_VARIANT_INDEX_LONG_NAME = "create-output-variant-index";
