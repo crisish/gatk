@@ -112,7 +112,7 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
                     " sample name " + MTAC.normalSampleName);
         }
 
-        annotationEngine = VariantAnnotatorEngine.ofSelectedMinusExcluded(MTAC.variantAnnotationArgumentCollection,
+        annotationEngine = VariantAnnotatorEngine.ofSelectedMinusExcluded(MTAC.defaultGATKVariantAnnotationArgumentCollection,
                 MTAC.dbsnp.dbsnp,
                 MTAC.comps);
 

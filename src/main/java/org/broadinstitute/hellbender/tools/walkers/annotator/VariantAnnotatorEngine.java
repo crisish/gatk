@@ -4,7 +4,7 @@ import com.google.common.collect.Sets;
 import htsjdk.variant.variantcontext.*;
 import htsjdk.variant.vcf.*;
 import org.broadinstitute.barclay.argparser.CommandLineException;
-import org.broadinstitute.hellbender.cmdline.GATKPlugin.VariantAnnotationArgumentCollection;
+import org.broadinstitute.hellbender.cmdline.GATKPlugin.DefaultGATKVariantAnnotationArgumentCollection;
 import org.broadinstitute.hellbender.engine.FeatureContext;
 import org.broadinstitute.hellbender.engine.FeatureInput;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
@@ -129,8 +129,8 @@ public final class VariantAnnotatorEngine {
 
     /**
      * An overload of {@link org.broadinstitute.hellbender.tools.walkers.annotator.VariantAnnotatorEngine#ofSelectedMinusExcluded ofSelectedMinusExcluded}
-     * except that it accepts a {@link VariantAnnotationArgumentCollection} as input.
-     * @param argumentCollection            VariantAnnotationArgumentCollection containing requested annotations.
+     * except that it accepts a {@link DefaultGATKVariantAnnotationArgumentCollection} as input.
+     * @param argumentCollection            DefaultGATKVariantAnnotationArgumentCollection containing requested annotations.
      * @param dbSNPInput                    input for variants from a known set from DbSNP or null if not provided.
      *                   The annotation engine will mark variants overlapping anything in this set using {@link htsjdk.variant.vcf.VCFConstants#DBSNP_KEY}.
      * @param comparisonFeatureInputs list of inputs with known variants.
@@ -139,7 +139,7 @@ public final class VariantAnnotatorEngine {
      *                   Note: there are no non-DBSNP comparison FeatureInputs an empty List should be passed in here, rather than null.
      * @return a VariantAnnotatorEngine initialized with the requested annotations
      */
-    public static VariantAnnotatorEngine ofSelectedMinusExcluded(final VariantAnnotationArgumentCollection argumentCollection,
+    public static VariantAnnotatorEngine ofSelectedMinusExcluded(final DefaultGATKVariantAnnotationArgumentCollection argumentCollection,
                                                                  final FeatureInput<VariantContext> dbSNPInput,
                                                                  final List<FeatureInput<VariantContext>> comparisonFeatureInputs) {
         return ofSelectedMinusExcluded(argumentCollection.annotationGroupsToUse,

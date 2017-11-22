@@ -304,10 +304,8 @@ public class GATKAnnotationPluginDescriptorUnitTest {
         Assert.assertTrue(vae.getInfoAnnotations().stream().noneMatch(a -> a.getClass().getSimpleName().equals(Coverage.class.getSimpleName())));
     }
 
-    //TODO if I decide you need to override then flip this test to assert the opposite
     @Test
     public void testAnnotationGroupOverriding(){
-        //TODO this will fail currently and its gross to deal with how group overriding should work
         CommandLineParser clp = new CommandLineArgumentParser(
                 new Object(),
                 Collections.singletonList(new GATKAnnotationPluginDescriptor(null, Collections.singletonList(StandardHCAnnotation.class))),

@@ -8,7 +8,7 @@ import org.broadinstitute.barclay.argparser.*;
 import org.broadinstitute.barclay.help.DocumentedFeature;
 import org.broadinstitute.hellbender.cmdline.*;
 import org.broadinstitute.hellbender.cmdline.argumentcollections.DbsnpArgumentCollection;
-import org.broadinstitute.hellbender.cmdline.GATKPlugin.VariantAnnotationArgumentCollection;
+import org.broadinstitute.hellbender.cmdline.GATKPlugin.DefaultGATKVariantAnnotationArgumentCollection;
 import org.broadinstitute.hellbender.cmdline.programgroups.VariantProgramGroup;
 import org.broadinstitute.hellbender.engine.*;
 import org.broadinstitute.hellbender.tools.walkers.annotator.*;
@@ -101,7 +101,7 @@ public final class GenotypeGVCFs extends VariantWalker {
     private GenotypeCalculationArgumentCollection genotypeArgs = new GenotypeCalculationArgumentCollection();
 
     @ArgumentCollection
-    private final VariantAnnotationArgumentCollection variantAnnotationArgumentCollection = new VariantAnnotationArgumentCollection(
+    private final DefaultGATKVariantAnnotationArgumentCollection defaultGATKVariantAnnotationArgumentCollection = new DefaultGATKVariantAnnotationArgumentCollection(
             Arrays.asList(StandardAnnotation.class.getSimpleName()),
             Collections.emptyList(),
             Collections.emptyList());
@@ -153,7 +153,7 @@ public final class GenotypeGVCFs extends VariantWalker {
 
         final SampleList samples = new IndexedSampleList(inputVCFHeader.getGenotypeSamples()); //todo should this be getSampleNamesInOrder?
 
-        annotationEngine = VariantAnnotatorEngine.ofSelectedMinusExcluded(variantAnnotationArgumentCollection, dbsnp.dbsnp, Collections.emptyList());
+        annotationEngine = VariantAnnotatorEngine.ofSelectedMinusExcluded(defaultGATKVariantAnnotationArgumentCollection, dbsnp.dbsnp, Collections.emptyList());
 
         // We only want the engine to generate the AS_QUAL key if we are using AlleleSpecific annotations.
         genotypingEngine = new MinimalGenotypingEngine(createUAC(), samples, new GeneralPloidyFailOverAFCalculatorProvider(genotypeArgs), annotationEngine.isRequestedReducibleRawKey(GATKVCFConstants.AS_QUAL_KEY));

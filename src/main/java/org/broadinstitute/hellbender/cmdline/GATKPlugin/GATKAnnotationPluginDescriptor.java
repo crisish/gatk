@@ -1,6 +1,5 @@
 package org.broadinstitute.hellbender.cmdline.GATKPlugin;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.barclay.argparser.ArgumentCollection;
@@ -27,13 +26,14 @@ import java.util.stream.Stream;
  * preserved in all cases, especially when group annotations are involved.
  */
 public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor<Annotation> {
+    //TODO this should be a configurable option or otherwise exposed to the user when configurations are fully supported.
     private static final String pluginPackageName = "org.broadinstitute.hellbender.tools.walkers.annotator";
     private static final Class<?> pluginBaseClass = org.broadinstitute.hellbender.tools.walkers.annotator.Annotation.class;
 
     protected transient Logger logger = LogManager.getLogger(this.getClass());
 
     @ArgumentCollection
-    private final VariantAnnotationArgumentCollection userArgs;
+    private final GATKAnnotationArgumentCollection userArgs;
 
     // Map of Annotation (simple) class names to the corresponding discovered plugin instance
     private final Map<String, Annotation> allDiscoveredAnnotations = new HashMap<>();
@@ -81,7 +81,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      * @param toolDefaultGroups List of tool specified default annotation group names. Annotations specified this way
      *                          will be instantiated with default arguments. may be null.
      */
-    public GATKAnnotationPluginDescriptor(final VariantAnnotationArgumentCollection userArgs, final List<Annotation> toolDefaultAnnotations, final List<Class<? extends Annotation>> toolDefaultGroups) {
+    public GATKAnnotationPluginDescriptor(final GATKAnnotationArgumentCollection userArgs, final List<Annotation> toolDefaultAnnotations, final List<Class<? extends Annotation>> toolDefaultGroups) {
         this.userArgs = userArgs;
         if (null != toolDefaultAnnotations) {
             toolDefaultAnnotations.forEach(f -> {
@@ -116,7 +116,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      *                          will be instantiated with default arguments. may be null.
      */
     public GATKAnnotationPluginDescriptor(final List<Annotation> toolDefaultAnnotations, final List<Class<? extends Annotation>> toolDefaultGroups) {
-        this(new VariantAnnotationArgumentCollection(Collections.emptyList(), Collections.emptyList(), Collections.emptyList()), toolDefaultAnnotations, toolDefaultGroups);
+        this(new DefaultGATKVariantAnnotationArgumentCollection(Collections.emptyList(), Collections.emptyList(), Collections.emptyList()), toolDefaultAnnotations, toolDefaultGroups);
     }
 
     @Override
@@ -231,12 +231,12 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
         // for the user to subsequently disable the required predecessor. That case is caught during final
         // validation done by the validateArguments method.
         String predecessorName = predecessorClass.getSimpleName();
-        boolean isAllowed = (userArgs.annotationsToUse.contains(predecessorName))
+        boolean isAllowed = (userArgs.getUserEnabledAnnotationNames().contains(predecessorName))
                 || (toolDefaultAnnotations.get(predecessorName) != null);
         if (!isAllowed) {
             // Need to check whether any of the annotations have been included in one of the group dependencies
             // TODO an alternative would be to use ClassUtils.knownSubInterfaceSimpleNames(Annotation.class); to discover the groups ahead of time
-            isAllowed = Stream.of(userArgs.annotationGroupsToUse, toolDefaultGroups)
+            isAllowed = Stream.of(userArgs.getUserEnabledAnnotationGroups(), toolDefaultGroups)
                     .flatMap(Collection::stream)
                     .anyMatch(group ->
                             discoveredGroups.containsKey(group) && discoveredGroups.get(group).stream().anyMatch(s -> s.getClass().getSimpleName().equals(predecessorName)));
@@ -257,7 +257,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
     @Override
     public void validateArguments() throws CommandLineException {
         // throw if a annotation is *enabled* more than once by the user
-        final Set<String> duplicateUserEnabledAnnotationNames = Utils.getDuplicatedItems(userArgs.annotationsToUse);
+        final Set<String> duplicateUserEnabledAnnotationNames = Utils.getDuplicatedItems(userArgs.getUserEnabledAnnotationNames());
         if (!duplicateUserEnabledAnnotationNames.isEmpty()) {
             throw new CommandLineException.BadArgumentValue(
                     String.format("The annotation(s) are enabled more than once: %s",
@@ -265,7 +265,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
         }
 
         // throw if a annotation is *disabled* more than once by the user
-        final Set<String> duplicateDisabledUserAnnotationNames = Utils.getDuplicatedItems(userArgs.annotationsToExclude);
+        final Set<String> duplicateDisabledUserAnnotationNames = Utils.getDuplicatedItems(userArgs.getUserDisabledAnnotationNames());
         if (!duplicateDisabledUserAnnotationNames.isEmpty()) {
             throw new CommandLineException.BadArgumentValue(
                     String.format("The annotation(s) are disabled more than once: %s",
@@ -273,8 +273,8 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
         }
 
         // throw if a annotation is both enabled *and* disabled by the user
-        final Set<String> enabledAndDisabled = new HashSet<>(userArgs.annotationsToUse);
-        enabledAndDisabled.retainAll(userArgs.annotationsToExclude);
+        final Set<String> enabledAndDisabled = new HashSet<>(userArgs.getUserEnabledAnnotationNames());
+        enabledAndDisabled.retainAll(userArgs.getUserDisabledAnnotationNames());
         if (!enabledAndDisabled.isEmpty()) {
             final String badAnnotationList = Utils.join(", ", enabledAndDisabled);
             throw new CommandLineException(
@@ -282,7 +282,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
         }
 
         // throw if a disabled annotation doesn't exist; warn if it wasn't enabled by the tool in the first place
-        userArgs.annotationsToExclude.forEach(s -> {
+        userArgs.getUserDisabledAnnotationNames().forEach(s -> {
             if (!allDiscoveredAnnotations.containsKey(s)) {
                 throw new CommandLineException.BadArgumentValue(String.format("Disabled annotation (%s) does not exist", s));
             } else if (!toolDefaultAnnotations.containsKey(s)) {
@@ -292,7 +292,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
 
         // warn if an annotation is both default and enabled by the user
         final Set<String> redundantAnnots = new HashSet<>(toolDefaultAnnotations.keySet());
-        redundantAnnots.retainAll(userArgs.annotationsToUse);
+        redundantAnnots.retainAll(userArgs.getUserEnabledAnnotationNames());
         redundantAnnots.forEach(
                 s -> {
                     logger.warn(String.format("Redundant enabled annotation (%s) is enabled for this tool by default", s));
@@ -300,7 +300,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
 
         // warn if an annotation is both default and enabled by the user
         final Set<String> redundantGroups = new HashSet<>(toolDefaultGroups);
-        redundantGroups.retainAll(userArgs.annotationGroupsToUse);
+        redundantGroups.retainAll(userArgs.getUserEnabledAnnotationGroups());
         redundantGroups.forEach(
                 s -> {
                     logger.warn(String.format("Redundant enabled annotation group (%s) is enabled for this tool by default", s));
@@ -316,7 +316,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
         // enabled annotation. However, its possible for the user to subsequently try to disable that
         // predecessor, which is what we want to catch here.
         //
-        userArgs.annotationsToExclude.forEach(s -> {
+        userArgs.getUserDisabledAnnotationNames().forEach(s -> {
             if (requiredPredecessors.contains(s)) {
                 String message = String.format("Values were supplied for (%s) that is also disabled", s);
                 if (toolDefaultAnnotations.containsKey(s)) {
@@ -332,7 +332,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
         });
 
         // throw if an annotation name was specified that has no corresponding instance
-        userArgs.annotationsToUse.forEach(s -> {
+        userArgs.getUserEnabledAnnotationNames().forEach(s -> {
             Annotation ta = allDiscoveredAnnotations.get(s);
             if (null == ta) {
                 if (!toolDefaultAnnotations.containsKey(s)) {
@@ -342,7 +342,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
         });
 
         // throw if a annotation name was specified that has no corresponding instance
-        userArgs.annotationGroupsToUse.forEach(s -> {
+        userArgs.getUserEnabledAnnotationGroups().forEach(s -> {
             if (!discoveredGroups.containsKey(s)) {
                 throw new CommandLineException("Unrecognized annotation group name: " + s);
             }
@@ -374,11 +374,11 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
     @Override
     public List<Annotation> getAllInstances() {
         final LinkedHashSet<Annotation> annotations = new LinkedHashSet<>();
-        userArgs.annotationGroupsToUse.forEach(s -> {
+        userArgs.getUserEnabledAnnotationGroups().forEach(s -> {
             List<Annotation> as = discoveredGroups.get(s);
             annotations.addAll(as);
         });
-        userArgs.annotationsToUse.forEach(s -> {
+        userArgs.getUserEnabledAnnotationNames().forEach(s -> {
             Annotation annot = allDiscoveredAnnotations.get(s);
             annotations.add(annot);
         });
@@ -408,23 +408,23 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
     public Collection<Annotation> getMergedAnnotations() {
         final SortedSet<Annotation> annotations = new TreeSet<>(Comparator.comparing(t -> t.getClass().getSimpleName()));
 
-        if (!userArgs.disableToolDefaultAnnotaitons) {
+        if (!userArgs.getDisableToolDefaultAnnotations()) {
             annotations.addAll(toolDefaultAnnotations.values().stream()
-                    .filter(t -> !userArgs.annotationsToExclude.contains(t.getClass().getSimpleName()))
+                    .filter(t -> !userArgs.getUserDisabledAnnotationNames().contains(t.getClass().getSimpleName()))
                     .collect(Collectors.toList()));
         }
         for (final Annotation annot : allDiscoveredAnnotations.values()) {
-            if (!userArgs.annotationsToExclude.contains(annot.getClass().getSimpleName())) {
+            if (!userArgs.getUserDisabledAnnotationNames().contains(annot.getClass().getSimpleName())) {
                 //if any group matches requested groups, it's in
                 //TODO this reflection should be abstracted away to somewhere nicer
                 @SuppressWarnings("unchecked") final Set<Class<?>> annotationGroupsForT = ReflectionUtils.getAllSuperTypes(annot.getClass(), sup -> sup.isInterface() && discoveredGroups.keySet().contains(sup.getSimpleName()));
-                if (annotationGroupsForT.stream().anyMatch(iface -> userArgs.annotationGroupsToUse.contains(iface.getSimpleName()))) {
+                if (annotationGroupsForT.stream().anyMatch(iface -> userArgs.getUserEnabledAnnotationGroups().contains(iface.getSimpleName()))) {
                     if (!annotations.contains(annot)) {
                         annotations.add(annot);
                     }
                 }
                 // If the user explicitly requests an annotation then we want to override its tool-default configuration
-                if (userArgs.annotationsToUse.contains(annot.getClass().getSimpleName())) {
+                if (userArgs.getUserEnabledAnnotationNames().contains(annot.getClass().getSimpleName())) {
                     annotations.add(annot);
                 }
             }
