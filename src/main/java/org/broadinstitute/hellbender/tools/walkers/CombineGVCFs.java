@@ -13,9 +13,10 @@ import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.barclay.argparser.ArgumentCollection;
 import org.broadinstitute.barclay.argparser.CommandLineProgramProperties;
 import org.broadinstitute.barclay.help.DocumentedFeature;
+import org.broadinstitute.hellbender.cmdline.GATKPlugin.DefaultGATKVariantAnnotationArgumentCollection;
+import org.broadinstitute.hellbender.cmdline.GATKPlugin.GATKAnnotationArgumentCollection;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.argumentcollections.DbsnpArgumentCollection;
-import org.broadinstitute.hellbender.cmdline.argumentcollections.VariantAnnotationArgumentCollection;
 import org.broadinstitute.hellbender.cmdline.programgroups.VariantProgramGroup;
 import org.broadinstitute.hellbender.engine.MultiVariantWalkerGroupedOnStart;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
@@ -85,7 +86,7 @@ public final class CombineGVCFs extends MultiVariantWalkerGroupedOnStart {
      * Which groups of annotations to add to the output VCF file.
      */
     @ArgumentCollection
-    public VariantAnnotationArgumentCollection variantAnnotationArgumentCollection = new VariantAnnotationArgumentCollection(
+    public DefaultGATKVariantAnnotationArgumentCollection variantAnnotationArgumentCollection = new DefaultGATKVariantAnnotationArgumentCollection(
             Arrays.asList(StandardAnnotation.class.getSimpleName()),
             Collections.emptyList(),
             Collections.emptyList());
