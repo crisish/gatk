@@ -5,6 +5,7 @@ import htsjdk.variant.variantcontext.*;
 import htsjdk.variant.vcf.*;
 import org.broadinstitute.barclay.argparser.CommandLineException;
 import org.broadinstitute.hellbender.cmdline.GATKPlugin.DefaultGATKVariantAnnotationArgumentCollection;
+import org.broadinstitute.hellbender.cmdline.GATKPlugin.GATKAnnotationArgumentCollection;
 import org.broadinstitute.hellbender.engine.FeatureContext;
 import org.broadinstitute.hellbender.engine.FeatureInput;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
@@ -139,12 +140,12 @@ public final class VariantAnnotatorEngine {
      *                   Note: there are no non-DBSNP comparison FeatureInputs an empty List should be passed in here, rather than null.
      * @return a VariantAnnotatorEngine initialized with the requested annotations
      */
-    public static VariantAnnotatorEngine ofSelectedMinusExcluded(final DefaultGATKVariantAnnotationArgumentCollection argumentCollection,
+    public static VariantAnnotatorEngine ofSelectedMinusExcluded(final GATKAnnotationArgumentCollection argumentCollection,
                                                                  final FeatureInput<VariantContext> dbSNPInput,
                                                                  final List<FeatureInput<VariantContext>> comparisonFeatureInputs) {
-        return ofSelectedMinusExcluded(argumentCollection.annotationGroupsToUse,
-                argumentCollection.annotationsToUse,
-                argumentCollection.annotationsToExclude,
+        return ofSelectedMinusExcluded(argumentCollection.getUserEnabledAnnotationGroups(),
+                argumentCollection.getUserEnabledAnnotationNames(),
+                argumentCollection.getUserDisabledAnnotationNames(),
                 dbSNPInput, comparisonFeatureInputs);
     }
     private VariantOverlapAnnotator initializeOverlapAnnotator(final FeatureInput<VariantContext> dbSNPInput, final List<FeatureInput<VariantContext>> featureInputs) {

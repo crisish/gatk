@@ -78,7 +78,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
     }
 
     @Test (dataProvider = "badAnnotationGroupsDataProvider", expectedExceptions = GATKException.class)
-    public void testInvalidRequestedAnnotationGroup(List<Class<? extends Annotation>> testGroups) { //TODO this will probably turn into a check for class inheretance
+    public void testInvalidRequestedAnnotationGroup(List<Class<? extends Annotation>> testGroups) {
         //This test asserts that the plugin descriptior will crash if an invalid annotation group is requested
         CommandLineParser clp = new CommandLineArgumentParser(
                 new Object(),
@@ -101,8 +101,8 @@ public class GATKAnnotationPluginDescriptorUnitTest {
     }
 
     @Test (dataProvider = "badAnnotationsDataProvider", expectedExceptions = CommandLineException.class)
-    public void testInvalidRequestedAnnotations(List<String> arguments) { //TODO this will probably turn into a check for class inheretance
-        //This test asserts that the plugin descriptior will crash if an invalid annotation group is requested
+    public void testInvalidRequestedAnnotations(List<String> arguments) {
+        //This test asserts that the plugin descriptor will crash if an invalid annotation group is requested
         CommandLineParser clp = new CommandLineArgumentParser(
                 new Object(),
                 Collections.singletonList(new GATKAnnotationPluginDescriptor(null, null)),
@@ -184,7 +184,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
 
 
     @Test
-    public void testToolDefaultAnnotationArgumentsOverriding() { //TODO this is a hot mess, need to clean it up
+    public void testToolDefaultAnnotationArgumentsOverriding() {
         String argName = "--founderID";
         String[] goodArguments = new String[]{"s1", "s2",  "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"};
 
@@ -198,23 +198,24 @@ public class GATKAnnotationPluginDescriptorUnitTest {
                 Collections.singletonList(new GATKAnnotationPluginDescriptor(Collections.singletonList(new InbreedingCoeff(new HashSet<>(Arrays.asList(goodArguments)))), null)),
                 Collections.emptySet());
 
-        List<String> args1 = Stream.of("--annotation", InbreedingCoeff.class.getSimpleName()).collect(Collectors.toList());
-        List<String> args2 = Stream.of("--annotation", InbreedingCoeff.class.getSimpleName(), argName, "s1").collect(Collectors.toList());
-        Arrays.asList(goodArguments).forEach(arg -> {args1.addAll(Arrays.asList(argName, arg));});
+        List<String> completeArguments = Stream.of("--annotation", InbreedingCoeff.class.getSimpleName()).collect(Collectors.toList());
+        List<String> incompleteArguments = Stream.of("--annotation", InbreedingCoeff.class.getSimpleName(), argName, "s1").collect(Collectors.toList());
+        Arrays.asList(goodArguments).forEach(arg -> {completeArguments.addAll(Arrays.asList(argName, arg));});
 
-        clp1.parseArguments(nullMessageStream, args1.toArray(new String[args1.size()]));
-        List<Annotation> goodOverridingBad = instantiateAnnotations(clp1);
-        clp2.parseArguments(nullMessageStream, args2.toArray(new String[args2.size()]));
-        List<Annotation> badOverridingGood = instantiateAnnotations(clp2);
+        clp1.parseArguments(nullMessageStream, completeArguments.toArray(new String[completeArguments.size()]));
+        List<Annotation> goodArgumentsOverridingBadArguments = instantiateAnnotations(clp1);
+        clp2.parseArguments(nullMessageStream, incompleteArguments.toArray(new String[incompleteArguments.size()]));
+        List<Annotation> badArgumentsOverridingGoodArguments = instantiateAnnotations(clp2);
 
-        Assert.assertEquals(goodOverridingBad.size(), 1);
-        Assert.assertEquals(badOverridingGood.size(), 1);
-        // assert that the overriding worked in both cases
-        Assert.assertEquals(Double.valueOf((String) ((InbreedingCoeff) goodOverridingBad.get(0))
+        Assert.assertEquals(goodArgumentsOverridingBadArguments.size(), 1);
+        Assert.assertEquals(badArgumentsOverridingGoodArguments.size(), 1);
+        // assert that with good arguments overriding that the inbreeding coefficient is calculated
+        Assert.assertEquals(Double.valueOf((String) ((InbreedingCoeff) goodArgumentsOverridingBadArguments.get(0))
                         .annotate(null, inbreedingCoefficientVC, null)
                         .get(GATKVCFConstants.INBREEDING_COEFFICIENT_KEY)),
                 -0.3333333, 0.001, "InbreedingCoefficientScores");
-        Assert.assertEquals(((InbreedingCoeff) badOverridingGood.get(0)).annotate(null, inbreedingCoefficientVC, null), Collections.emptyMap());
+        // assert that with bad arguments overriding that the inbreeding coefficient is not calculated
+        Assert.assertEquals(((InbreedingCoeff) badArgumentsOverridingGoodArguments.get(0)).annotate(null, inbreedingCoefficientVC, null), Collections.emptyMap());
     }
 
     //TODO This test is intended to show that the disabling and reenabling an annotation will restore global defaults but unfortunately

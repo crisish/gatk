@@ -1,11 +1,9 @@
 package org.broadinstitute.hellbender.cmdline.GATKPlugin;
 
-import org.broadinstitute.barclay.argparser.Advanced;
 import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.utils.Utils;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,7 +21,7 @@ public class DefaultGATKVariantAnnotationArgumentCollection extends GATKAnnotati
      * @param defaultAnnotations          List of annotation class names to be used by default
      * @param defaultAnnotationsToExclude List of annotation class names to exclude by default. These override the default annotations and annotation groups.
      */
-    public DefaultGATKVariantAnnotationArgumentCollection(List<String> defaultGroups, List<String> defaultAnnotations, List<String> defaultAnnotationsToExclude) {
+    public DefaultGATKVariantAnnotationArgumentCollection(final List<String> defaultGroups, final List<String> defaultAnnotations, final List<String> defaultAnnotationsToExclude) {
         Utils.nonNull(defaultGroups);
         Utils.nonNull(defaultAnnotations);
         Utils.nonNull(defaultAnnotationsToExclude);
@@ -58,7 +56,7 @@ public class DefaultGATKVariantAnnotationArgumentCollection extends GATKAnnotati
      * Hook allowing for the user to remove default annotations from the tool
      */
     @Argument(fullName = StandardArgumentDefinitions.DISABLE_TOOL_DEFAULT_ANNOTATIONS, shortName = StandardArgumentDefinitions.DISABLE_TOOL_DEFAULT_ANNOTATIONS, doc = "Disable all tool default annotations", optional = true)
-    public boolean disableToolDefaultAnnotaitons = false;
+    public boolean disableToolDefaultAnnotations = false;
 
     @Override
     public List<String> getUserEnabledAnnotationNames() {
@@ -77,6 +75,6 @@ public class DefaultGATKVariantAnnotationArgumentCollection extends GATKAnnotati
 
     @Override
     public boolean getDisableToolDefaultAnnotations() {
-        return disableToolDefaultAnnotaitons;
+        return disableToolDefaultAnnotations;
     }
 }

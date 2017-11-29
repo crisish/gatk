@@ -19,10 +19,10 @@ import java.util.stream.Stream;
 
 /**
  * A plugin descriptor for managing the dynamic discovery of both @{InfoFieldAnnotation} and @{GenotypeAnnotation} objects
- * within the packages defined the method getPackageNames() (default @{org.broadinstitute.hellbender.tools.walkers.annotator}).
+ * within the packages defined the method getPackageNames() (default {@link org.broadinstitute.hellbender.tools.walkers.annotator}).
  * Also handles integrating annotation specific arguments from the command line with tool specified defaults.
  *
- * Unlike @{GATKReadFilterPluginDescriptor} annotation order is not important and thus argument order is not guaranteed to be
+ * Unlike {@link GATKReadFilterPluginDescriptor} annotation order is not important and thus argument order is not guaranteed to be
  * preserved in all cases, especially when group annotations are involved.
  */
 public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor<Annotation> {
@@ -38,11 +38,10 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
     // Map of Annotation (simple) class names to the corresponding discovered plugin instance
     private final Map<String, Annotation> allDiscoveredAnnotations = new HashMap<>();
 
-    // Map of Annotation (simple) class names to the corresponding default plugin instance
-    // it is a LinkedHashMap because we want to remember the order in which these were provided, and also keep the
-    // actual instances in case they have any additional state provided by the tool
+    // Map of Annotation (simple) class names to the corresponding default plugin instance.
+    // We keep the actual instances in case they have any additional state provided by the tool
     // when they were created
-    private final Map<String, Annotation> toolDefaultAnnotations = new LinkedHashMap<>();
+    private final Map<String, Annotation> toolDefaultAnnotations = new HashMap<>();
     private final Set<String> toolDefaultGroups = new HashSet<>();
 
     // Set of predecessor annotations for which we've seen arguments exist either as a tool default or be supplied by the user
@@ -85,14 +84,14 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
         this.userArgs = userArgs;
         if (null != toolDefaultAnnotations) {
             toolDefaultAnnotations.forEach(f -> {
-                final Class<? extends Annotation> rfClass = f.getClass();
+                final Class<? extends Annotation> annotClass = f.getClass();
                 // anonymous classes have a 0-length simple name, and thus cannot be accessed or
                 // controlled by the user via the command line, but they should still be valid
                 // as default annotations, so use the full name to ensure that their map entries
                 // don't clobber each other
-                String className = rfClass.getSimpleName();
+                String className = annotClass.getSimpleName();
                 if (className.length() == 0) {
-                    className = rfClass.getName();
+                    className = annotClass.getName();
                 }
                 this.toolDefaultAnnotations.put(className, f);
             });
@@ -108,7 +107,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
     }
 
     /**
-     * Overload of @{GATKAnnotationPluginDescriptor} where no userArgs are specified.
+     * Overload of {@link GATKAnnotationPluginDescriptor} where no userArgs are specified.
      *
      * @param toolDefaultAnnotations Default annotations that may be supplied with arguments
      *                               on the command line. May be null.
@@ -144,7 +143,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      * instantiate or otherwise obtain (possibly by having been provided an instance
      * through the descriptor's constructor) an instance of this plugin class.
      * The descriptor should maintain a list of these instances so they can later
-     * be retrieved by {@link #getAllInstances}.
+     * be retrieved by {@link #getAllInstances()}.
      * <p>
      * In addition, implementations should recognize and reject any attempt to instantiate
      * a second instance of a plugin that has the same simple class name as another plugin
@@ -153,7 +152,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      * these on the command line).
      *
      * @param pluggableClass a plugin class discovered by the command line parser that
-     *                       was not rejected by {@link #getClassFilter}
+     *                       was not rejected by {@link #getClassFilter()}
      * @return the instantiated object that will be used by the command line parser
      * as an argument source
      * @throws IllegalAccessException
@@ -193,7 +192,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
             // extend Annotation, groups are discovered by interrogating annotations for their interfaces and
             // associating the discovered annotations with their defined groups.
             if ((inter != pluginBaseClass) && (pluginBaseClass.isAssignableFrom(inter))) {
-                discoveredGroups.merge(inter.getSimpleName(), Collections.singletonList(annot), (a, b) -> {return Stream.concat(a.stream(),b.stream()).collect(Collectors.toList());} );
+                discoveredGroups.merge(inter.getSimpleName(), Collections.singletonList(annot), (a, b) -> Stream.concat(a.stream(),b.stream()).collect(Collectors.toList()) );
 
                 // If its a valid group, check whether the tool requested that group and add it to default annotations
                 if (toolDefaultGroups.contains(inter.getSimpleName()) && !toolDefaultAnnotations.containsKey(simpleName)) {
@@ -256,7 +255,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      */
     @Override
     public void validateArguments() throws CommandLineException {
-        // throw if a annotation is *enabled* more than once by the user
+        // throw if an annotation group is *enabled* more than once by the user
         final Set<String> duplicateUserEnabledAnnotationNames = Utils.getDuplicatedItems(userArgs.getUserEnabledAnnotationNames());
         if (!duplicateUserEnabledAnnotationNames.isEmpty()) {
             throw new CommandLineException.BadArgumentValue(
@@ -264,7 +263,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
                             Utils.join(", ", duplicateUserEnabledAnnotationNames)));
         }
 
-        // throw if a annotation is *disabled* more than once by the user
+        // throw if an annotation is *disabled* more than once by the user
         final Set<String> duplicateDisabledUserAnnotationNames = Utils.getDuplicatedItems(userArgs.getUserDisabledAnnotationNames());
         if (!duplicateDisabledUserAnnotationNames.isEmpty()) {
             throw new CommandLineException.BadArgumentValue(
@@ -272,7 +271,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
                             Utils.join(", ", duplicateDisabledUserAnnotationNames)));
         }
 
-        // throw if a annotation is both enabled *and* disabled by the user
+        // throw if an annotation is both enabled *and* disabled by the user
         final Set<String> enabledAndDisabled = new HashSet<>(userArgs.getUserEnabledAnnotationNames());
         enabledAndDisabled.retainAll(userArgs.getUserDisabledAnnotationNames());
         if (!enabledAndDisabled.isEmpty()) {
@@ -341,7 +340,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
             }
         });
 
-        // throw if a annotation name was specified that has no corresponding instance
+        // throw if an annotation name was specified that has no corresponding instance
         userArgs.getUserEnabledAnnotationGroups().forEach(s -> {
             if (!discoveredGroups.containsKey(s)) {
                 throw new CommandLineException("Unrecognized annotation group name: " + s);

@@ -225,13 +225,13 @@ public final class HaplotypeCallerEngine implements AssemblyRegionEvaluator {
             hcArgs.genotypeArgs.STANDARD_CONFIDENCE_FOR_CALLING = -0.0;
 
             // also, we don't need to output several of the annotations
-            hcArgs.defaultGATKVariantAnnotationArgumentCollection.annotationsToExclude.add(ChromosomeCounts.class.getSimpleName());
-            hcArgs.defaultGATKVariantAnnotationArgumentCollection.annotationsToExclude.add(FisherStrand.class.getSimpleName());
-            hcArgs.defaultGATKVariantAnnotationArgumentCollection.annotationsToExclude.add(StrandOddsRatio.class.getSimpleName());
-            hcArgs.defaultGATKVariantAnnotationArgumentCollection.annotationsToExclude.add(QualByDepth.class.getSimpleName());
+            hcArgs.defaultGATKVariantAnnotationArgumentCollection.getUserDisabledAnnotationNames().add(ChromosomeCounts.class.getSimpleName());
+            hcArgs.defaultGATKVariantAnnotationArgumentCollection.getUserDisabledAnnotationNames().add(FisherStrand.class.getSimpleName());
+            hcArgs.defaultGATKVariantAnnotationArgumentCollection.getUserDisabledAnnotationNames().add(StrandOddsRatio.class.getSimpleName());
+            hcArgs.defaultGATKVariantAnnotationArgumentCollection.getUserDisabledAnnotationNames().add(QualByDepth.class.getSimpleName());
 
             // but we definitely want certain other ones
-            hcArgs.defaultGATKVariantAnnotationArgumentCollection.annotationsToUse.add(StrandBiasBySample.class.getSimpleName());
+            hcArgs.defaultGATKVariantAnnotationArgumentCollection.getUserEnabledAnnotationNames().add(StrandBiasBySample.class.getSimpleName());
             logger.info("Standard Emitting and Calling confidence set to 0.0 for reference-model confidence output");
             if ( ! hcArgs.annotateAllSitesWithPLs ) {
                 logger.info("All sites annotated with PLs forced to true for reference-model confidence output");
