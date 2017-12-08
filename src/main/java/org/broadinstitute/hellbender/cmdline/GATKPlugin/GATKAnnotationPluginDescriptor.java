@@ -24,6 +24,12 @@ import java.util.stream.Stream;
  *
  * Unlike {@link GATKReadFilterPluginDescriptor} annotation order is not important and thus argument order is not guaranteed to be
  * preserved in all cases, especially when group annotations are involved.
+ *
+ * An alternative method for discovering annotations would be to use ClassUtils.knownSubInterfaceSimpleNames(Annotation.class);
+ * Which is the preferred way to discover Annotations for testing purposes.
+ *
+ * NOTE: this class enforces that annotations with required arguments must see their arguments, yet this is not currently tested
+ *       as no such annotations exist in the GATK.
  */
 public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor<Annotation> {
     //TODO this should be a configurable option or otherwise exposed to the user when configurations are fully supported.
@@ -93,6 +99,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
                 if (className.length() == 0) {
                     className = annotClass.getName();
                 }
+                populateAnnotationGroups(className, f);
                 this.toolDefaultAnnotations.put(className, f);
             });
         }
@@ -185,23 +192,29 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
         // tool defaults list (we want the actual instances to be shared to preserve state)
         allDiscoveredAnnotations.put(simpleName, annot);
 
-        // Dynamic discovery of annotation groups
+        populateAnnotationGroups(simpleName, annot);
+
+        return annot;
+    }
+
+    // Dynamic discovery of annotation groups
+    // We must discover annotation groups and store them for each instance so we can resolve group membership
+    // for command line including of groups based on their simple name.
+    private void populateAnnotationGroups(final String simpleName, final Annotation annot) {
         Class<?>[] interfaces = annot.getClass().getInterfaces();
         for (Class<?> inter : interfaces) {
             // Following with how groups are currently defined and discovered, namely they are interfaces that
             // extend Annotation, groups are discovered by interrogating annotations for their interfaces and
             // associating the discovered annotations with their defined groups.
             if ((inter != pluginBaseClass) && (pluginBaseClass.isAssignableFrom(inter))) {
-                discoveredGroups.merge(inter.getSimpleName(), Collections.singletonList(annot), (a, b) -> Stream.concat(a.stream(),b.stream()).collect(Collectors.toList()) );
+                discoveredGroups.merge(inter.getSimpleName(), Collections.singletonList(annot), (a, b) -> Stream.concat(a.stream(), b.stream()).collect(Collectors.toList()));
 
-                // If its a valid group, check whether the tool requested that group and add it to default annotations
-                if (toolDefaultGroups.contains(inter.getSimpleName()) && !toolDefaultAnnotations.containsKey(simpleName)) {
-                    toolDefaultAnnotations.put(simpleName, annot);
-                }
+//                // If its a valid group, check whether the tool requested that group and add it to default annotations
+//                if (toolDefaultGroups.contains(inter.getSimpleName()) && !toolDefaultAnnotations.containsKey(simpleName)) {
+//                    toolDefaultAnnotations.put(simpleName, annot);
+//                }
             }
         }
-
-        return annot;
     }
 
     /**
@@ -233,8 +246,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
         boolean isAllowed = (userArgs.getUserEnabledAnnotationNames().contains(predecessorName))
                 || (toolDefaultAnnotations.get(predecessorName) != null);
         if (!isAllowed) {
-            // Need to check whether any of the annotations have been included in one of the group dependencies
-            // TODO an alternative would be to use ClassUtils.knownSubInterfaceSimpleNames(Annotation.class); to discover the groups ahead of time
+            // Check whether any of the annotations have been added via groups (either tool default or user enabled)
             isAllowed = Stream.of(userArgs.getUserEnabledAnnotationGroups(), toolDefaultGroups)
                     .flatMap(Collection::stream)
                     .anyMatch(group ->
@@ -297,7 +309,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
                     logger.warn(String.format("Redundant enabled annotation (%s) is enabled for this tool by default", s));
                 });
 
-        // warn if an annotation is both default and enabled by the user
+        // warn if an annotation group is both default and enabled by the user
         final Set<String> redundantGroups = new HashSet<>(toolDefaultGroups);
         redundantGroups.retainAll(userArgs.getUserEnabledAnnotationGroups());
         redundantGroups.forEach(
@@ -346,6 +358,13 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
                 throw new CommandLineException("Unrecognized annotation group name: " + s);
             }
         });
+
+        // Populating the tool default annotations with the ones requested by groups
+        for (String group : toolDefaultGroups ) {
+            for (Annotation annot : discoveredGroups.get(group)) {
+                toolDefaultAnnotations.put(annot.getClass().getSimpleName(), annot);
+            }
+        }
     }
 
     /**
@@ -354,6 +373,8 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      * NOTE: this method does not account for disabled default annotation and just return ALL default instances.
      * The refactored interface in Barclay changes it's contract to allows returning a list with only 'enabled' default
      * instances. We'll change the implementation when we integrate the updated interface.
+     *
+     * @return A list of Annotation objects that were enabled by the tool by default either by toolDefaultGroups or toolDefaultAnnotations
      */
     @Override
     public List<Object> getDefaultInstances() {
@@ -372,6 +393,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      */
     @Override
     public List<Annotation> getAllInstances() {
+        // Note we used a hash set here to prevent duplicating annotations that were explicitly added and pulled in from a group
         final LinkedHashSet<Annotation> annotations = new LinkedHashSet<>();
         userArgs.getUserEnabledAnnotationGroups().forEach(s -> {
             List<Annotation> as = discoveredGroups.get(s);
@@ -404,31 +426,18 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      *
      * @return An unordered Collection of annotations.
      */
-    public Collection<Annotation> getMergedAnnotations() {
+    public Collection<Annotation> getFinalAnnoationsList() {
         final SortedSet<Annotation> annotations = new TreeSet<>(Comparator.comparing(t -> t.getClass().getSimpleName()));
 
         if (!userArgs.getDisableToolDefaultAnnotations()) {
-            annotations.addAll(toolDefaultAnnotations.values().stream()
-                    .filter(t -> !userArgs.getUserDisabledAnnotationNames().contains(t.getClass().getSimpleName()))
-                    .collect(Collectors.toList()));
+            annotations.addAll(toolDefaultAnnotations.values());
         }
-        for (final Annotation annot : allDiscoveredAnnotations.values()) {
-            if (!userArgs.getUserDisabledAnnotationNames().contains(annot.getClass().getSimpleName())) {
-                //if any group matches requested groups, it's in
-                //TODO this reflection should be abstracted away to somewhere nicer
-                @SuppressWarnings("unchecked") final Set<Class<?>> annotationGroupsForT = ReflectionUtils.getAllSuperTypes(annot.getClass(), sup -> sup.isInterface() && discoveredGroups.keySet().contains(sup.getSimpleName()));
-                if (annotationGroupsForT.stream().anyMatch(iface -> userArgs.getUserEnabledAnnotationGroups().contains(iface.getSimpleName()))) {
-                    if (!annotations.contains(annot)) {
-                        annotations.add(annot);
-                    }
-                }
-                // If the user explicitly requests an annotation then we want to override its tool-default configuration
-                if (userArgs.getUserEnabledAnnotationNames().contains(annot.getClass().getSimpleName())) {
-                    annotations.add(annot);
-                }
-            }
+        for (String group : userArgs.getUserEnabledAnnotationGroups()) {
+            annotations.addAll(discoveredGroups.get(group));
         }
-
-        return annotations;
+        for (String annotation : userArgs.getUserEnabledAnnotationNames()) {
+            annotations.add(allDiscoveredAnnotations.get(annotation));
+        }
+        return annotations.stream().filter(t -> !userArgs.getUserDisabledAnnotationNames().contains(t.getClass().getSimpleName())).collect(Collectors.toList());
     }
 }

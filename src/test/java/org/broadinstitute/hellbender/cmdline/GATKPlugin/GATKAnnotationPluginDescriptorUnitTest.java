@@ -7,8 +7,10 @@ import org.broadinstitute.barclay.argparser.CommandLineException;
 import org.broadinstitute.barclay.argparser.CommandLineParser;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.engine.FeatureContext;
+import org.broadinstitute.hellbender.engine.ReferenceContext;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.tools.walkers.annotator.*;
+import org.broadinstitute.hellbender.utils.genotyper.ReadLikelihoods;
 import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
 import org.mockito.internal.util.collections.Sets;
 import org.testng.Assert;
@@ -26,7 +28,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
     private static final PrintStream nullMessageStream = new PrintStream(new NullOutputStream());
 
 //======================================================================================================================
-//Methods from InbreedingCoefficient for testing purposes
+// Methods for computing individual annotations
     private static final Allele Aref = Allele.create("A", true);
     private static final Allele T = Allele.create("T");
     private static final Allele C = Allele.create("C");
@@ -65,7 +67,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
 
     private List<Annotation> instantiateAnnotations(final CommandLineParser clp) {
         GATKAnnotationPluginDescriptor annotationPlugin = clp.getPluginDescriptor(GATKAnnotationPluginDescriptor.class);
-        return Arrays.asList(annotationPlugin.getMergedAnnotations().toArray(new Annotation[0]));
+        return Arrays.asList(annotationPlugin.getFinalAnnoationsList().toArray(new Annotation[0]));
     }
 
     @DataProvider
@@ -78,19 +80,31 @@ public class GATKAnnotationPluginDescriptorUnitTest {
     }
 
     @Test (dataProvider = "badAnnotationGroupsDataProvider", expectedExceptions = GATKException.class)
-    public void testInvalidRequestedAnnotationGroup(List<Class<? extends Annotation>> testGroups) {
+    public void testInvalidToolDefaultAnnotationGroups(List<Class<? extends Annotation>> testGroups) {
         //This test asserts that the plugin descriptior will crash if an invalid annotation group is requested
         CommandLineParser clp = new CommandLineArgumentParser(
                 new Object(),
                 Collections.singletonList(new GATKAnnotationPluginDescriptor(null, testGroups)),
                 Collections.emptySet());
-        String[] args = {};
-        clp.parseArguments(nullMessageStream, args);
-        Collection<Annotation> annots = instantiateAnnotations(clp);
+    }
+
+    @Test (dataProvider = "badAnnotationGroupsDataProvider", expectedExceptions = CommandLineException.class)
+    public void testInvalidRequestedAnnotationGroups(List<Class<? extends Annotation>> testGroups) {
+        //This test asserts that the plugin descriptior will crash if an invalid annotation group is requested
+        CommandLineParser clp = new CommandLineArgumentParser(
+                new Object(),
+                Collections.singletonList(new GATKAnnotationPluginDescriptor(null, null)),
+                Collections.emptySet());
+        List<String> args = new ArrayList<>();
+        for (Class<? extends Annotation> group : testGroups) {
+            args.add("-G");
+            args.add(group.getSimpleName());
+        }
+        clp.parseArguments(nullMessageStream, args.toArray(new String[0]));
     }
 
     @DataProvider
-    public Object[][] badAnnotationsDataProvider() {
+    public Object[][] badAnnotationArgumentsDataProvider() {
         Object[][] out = {
                 { Arrays.asList("-A", "StandardAnnotation")},
                 { Arrays.asList("-A", "RMSMappingQuality", "-A", "RMSMappingQuality")},
@@ -100,8 +114,8 @@ public class GATKAnnotationPluginDescriptorUnitTest {
         return out;
     }
 
-    @Test (dataProvider = "badAnnotationsDataProvider", expectedExceptions = CommandLineException.class)
-    public void testInvalidRequestedAnnotations(List<String> arguments) {
+    @Test (dataProvider = "badAnnotationArgumentsDataProvider", expectedExceptions = CommandLineException.class)
+    public void testInvalidUserSpecifiedAnnotations(List<String> arguments) {
         //This test asserts that the plugin descriptor will crash if an invalid annotation group is requested
         CommandLineParser clp = new CommandLineArgumentParser(
                 new Object(),
@@ -109,17 +123,17 @@ public class GATKAnnotationPluginDescriptorUnitTest {
                 Collections.emptySet());
         String[] args = arguments.toArray(new String[arguments.size()]);
         clp.parseArguments(nullMessageStream, args);
-        Collection<Annotation> annots = instantiateAnnotations(clp);
     }
 
     @DataProvider
-    public Object[][] annotationsWithRequiredArguments(){
+    public Object[][] annotationsWithArguments(){
         return new Object[][]{{ InbreedingCoeff.class.getSimpleName(), "--founderID", "s1"}};
     }
 
     // fail if an annotation with required arguments is specified without corresponding arguments
     // TODO this test is disabled as there are currently no annotations for which the argument is required
-    @Test(dataProvider = "annotationsWithRequiredArguments", expectedExceptions = CommandLineException.MissingArgument.class, enabled = false)
+    // TODO if any developer does add dependant arguments in the future they should be tested using this format
+    @Test(dataProvider = "annotationsWithArguments", expectedExceptions = CommandLineException.MissingArgument.class, enabled = false)
     public void testDependentAnnotationArguments(
             final String annot,
             final String argName,   //unused
@@ -129,12 +143,12 @@ public class GATKAnnotationPluginDescriptorUnitTest {
                 Collections.singletonList(new GATKAnnotationPluginDescriptor(null, null)),
                 Collections.emptySet());
 
-        String[] args = {"--annotation", annot};  // no args, just enable filters
+        String[] args = {"--annotation", annot};  // no args, just enable annotations
         clp.parseArguments(nullMessageStream, args);
     }
 
     // fail if a annotation's arguments are passed but the annotation itself is not enabled
-    @Test(dataProvider = "annotationsWithRequiredArguments", expectedExceptions = CommandLineException.class)
+    @Test(dataProvider = "annotationsWithArguments", expectedExceptions = CommandLineException.class)
     public void testDanglingAnnotationArguments(
             final String annot,
             final String argName,
@@ -244,7 +258,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
     }
 
     @Test
-    public void testEmpty(){
+    public void testNoAnnotations(){
         CommandLineParser clp = new CommandLineArgumentParser(
                 new Object(),
                 Collections.singletonList(new GATKAnnotationPluginDescriptor(null, null)),
@@ -258,7 +272,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
     }
 
     @Test
-    public void testExclude(){
+    public void testIncludeDefaultExcludeIndividual(){
         CommandLineParser clp = new CommandLineArgumentParser(
                 new Object(),
                 Collections.singletonList(new GATKAnnotationPluginDescriptor(Collections.singletonList(new Coverage()), null)),
@@ -322,5 +336,54 @@ public class GATKAnnotationPluginDescriptorUnitTest {
         //check that Coverage is in and ClippingRankSum is out
         Assert.assertTrue(vae.getInfoAnnotations().stream().anyMatch(a -> a.getClass().getSimpleName().equals(Coverage.class.getSimpleName())));
         Assert.assertTrue(vae.getInfoAnnotations().stream().anyMatch(a -> a.getClass().getSimpleName().equals(ClippingRankSumTest.class.getSimpleName())));
+    }
+
+    @DataProvider
+    public Object[][] groupHierarchyArguments(){
+        return new Object[][]{
+                {new String[]{"--"+ StandardArgumentDefinitions.DISABLE_TOOL_DEFAULT_ANNOTATIONS}, false, false},
+                {new String[]{"--"+ StandardArgumentDefinitions.DISABLE_TOOL_DEFAULT_ANNOTATIONS, "-G","ParentAnnotationGroup"}, true, true},
+                {new String[]{"--"+ StandardArgumentDefinitions.DISABLE_TOOL_DEFAULT_ANNOTATIONS, "-G","ChildAnnotationGroup"}, true, false},
+                {new String[]{"--"+ StandardArgumentDefinitions.DISABLE_TOOL_DEFAULT_ANNOTATIONS, "-G","ParentAnnotationGroup","-G","ChildAnnotationGroup"}, true, true},
+                {new String[]{}, true, true},};
+    }
+
+    // Though current annotation groups aren't implemented in a hierarchical manner, this test enforces that they would behave
+    // in an expected manner as well as testing that annotation groups can be dynamically discovered
+    @Test (dataProvider = "groupHierarchyArguments")
+    public void testGroupHiearchyBehavior(String[] args, boolean includeChild, boolean includeParent){
+        testChildAnnotation childAnnotation = new testChildAnnotation();
+        testParentAnnotation parentAnnotation = new testParentAnnotation();
+        CommandLineParser clp = new CommandLineArgumentParser(
+                new Object(),
+                Collections.singletonList(new GATKAnnotationPluginDescriptor(Arrays.asList(parentAnnotation, childAnnotation), null)),
+                Collections.emptySet());
+        clp.parseArguments(nullMessageStream, args);
+        List<Annotation> annots = instantiateAnnotations(clp);
+        Assert.assertEquals(annots.contains(childAnnotation), includeChild);
+        Assert.assertEquals(annots.contains(parentAnnotation), includeParent);
+    }
+
+    private interface ParentAnnotationGroup extends Annotation { }
+    private interface ChildAnnotationGroup extends ParentAnnotationGroup { }
+    private class testChildAnnotation extends InfoFieldAnnotation implements ChildAnnotationGroup  {
+        @Override
+        public Map<String, Object> annotate(ReferenceContext ref, VariantContext vc, ReadLikelihoods<Allele> likelihoods) {
+            return Collections.singletonMap("Test","foo");
+        }
+        @Override
+        public List<String> getKeyNames() {
+            return Collections.singletonList("Test");
+        }
+    }
+    private class testParentAnnotation extends InfoFieldAnnotation implements ParentAnnotationGroup  {
+        @Override
+        public Map<String, Object> annotate(ReferenceContext ref, VariantContext vc, ReadLikelihoods<Allele> likelihoods) {
+            return Collections.singletonMap("Test","foo");
+        }
+        @Override
+        public List<String> getKeyNames() {
+            return Collections.singletonList("Test");
+        }
     }
 }
