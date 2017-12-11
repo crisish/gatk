@@ -341,6 +341,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
     @DataProvider
     public Object[][] groupHierarchyArguments(){
         return new Object[][]{
+                // we must add --DISABLE_TOOL_DEFAULT_ANNOTATIONS because we pass our annotation objects in to have their groups dynamically discovered
                 {new String[]{"--"+ StandardArgumentDefinitions.DISABLE_TOOL_DEFAULT_ANNOTATIONS}, false, false},
                 {new String[]{"--"+ StandardArgumentDefinitions.DISABLE_TOOL_DEFAULT_ANNOTATIONS, "-G","ParentAnnotationGroup"}, true, true},
                 {new String[]{"--"+ StandardArgumentDefinitions.DISABLE_TOOL_DEFAULT_ANNOTATIONS, "-G","ChildAnnotationGroup"}, true, false},
