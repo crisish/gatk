@@ -9,13 +9,17 @@ import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.engine.FeatureContext;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
 import org.broadinstitute.hellbender.exceptions.GATKException;
+import org.broadinstitute.hellbender.tools.AnnotatePairOrientation;
 import org.broadinstitute.hellbender.tools.walkers.annotator.*;
 import org.broadinstitute.hellbender.utils.genotyper.ReadLikelihoods;
+import org.broadinstitute.hellbender.utils.test.VariantContextTestUtils;
 import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
+import org.broadinstitute.barclay.argparser.Argument;
 import org.mockito.internal.util.collections.Sets;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+import scala.tools.nsc.transform.patmat.ScalaLogic;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -196,6 +200,47 @@ public class GATKAnnotationPluginDescriptorUnitTest {
         condition.accept(rf.get(0));
     }
 
+    @DataProvider
+    public Object[][] artificialAnnotationsTests() {
+        return new Object[][]{
+                {Arrays.asList(new testChildAnnotation(), new testParentAnnotation()),
+                        new String[0],
+                        true,
+                        5},
+                {Arrays.asList(new testChildAnnotation(), new testParentAnnotation()),
+                        new String[]{"--"+StandardArgumentDefinitions.DISABLE_TOOL_DEFAULT_ANNOTATIONS},
+                        false,
+                        5},
+                {Arrays.asList(new testChildAnnotation(), new testParentAnnotation()),
+                        new String[]{"--testParentArg"},
+                        false,
+                        5},
+                {Arrays.asList(new testChildAnnotation(), new testParentAnnotation()),
+                        new String[]{"--testChildArg", "10"},
+                        true,
+                        10},
+                {Arrays.asList(new testChildAnnotation(), new testParentAnnotation()),
+                        new String[]{"--testChildArg", "10", "--testParentArg"},
+                        false,
+                        10}};
+
+    }
+
+    @Test (dataProvider = "artificialAnnotationsTests")
+    public void testMultipleOptionalArguments(final List<Annotation> classes, final String[] arguments, final boolean expectingParent, final int expectedChild) {
+        CommandLineParser clp = new CommandLineArgumentParser(
+                new Object(),
+                Collections.singletonList(new GATKAnnotationPluginDescriptor(classes, null)),
+                Collections.emptySet());
+
+        clp.parseArguments(nullMessageStream, arguments);
+        VariantAnnotatorEngine vae = new VariantAnnotatorEngine(instantiateAnnotations(clp), null, Collections.emptyList(), false);
+        VariantContext vc = makeVC("source", Arrays.asList(Aref, T),makeG("s1", Aref, T, 2530, 0, 7099, 366, 3056, 14931));
+        vc = vae.annotateContext(vc, new FeatureContext(), null, null, a->true);
+
+        Assert.assertEquals(vc.getAttribute("Parent"), expectingParent?"foo":null);
+        Assert.assertEquals(vc.getAttribute("Child"), Integer.toString(expectedChild));
+    }
 
     @Test
     public void testToolDefaultAnnotationArgumentsOverriding() {
@@ -367,10 +412,12 @@ public class GATKAnnotationPluginDescriptorUnitTest {
 
     private interface ParentAnnotationGroup extends Annotation { }
     private interface ChildAnnotationGroup extends ParentAnnotationGroup { }
-    private class testChildAnnotation extends InfoFieldAnnotation implements ChildAnnotationGroup  {
+    class testChildAnnotation extends InfoFieldAnnotation implements ChildAnnotationGroup  {
+        @Argument(fullName = "testChildArg", shortName = "testChildArg", doc="none", optional=true)
+        public int argument = 5;
         @Override
         public Map<String, Object> annotate(ReferenceContext ref, VariantContext vc, ReadLikelihoods<Allele> likelihoods) {
-            return Collections.singletonMap("Test","foo");
+            return Collections.singletonMap("Child",Integer.toString(argument));
         }
         @Override
         public List<String> getKeyNames() {
@@ -378,9 +425,15 @@ public class GATKAnnotationPluginDescriptorUnitTest {
         }
     }
     private class testParentAnnotation extends InfoFieldAnnotation implements ParentAnnotationGroup  {
+        @Argument(fullName = "testParentArg", shortName = "testParentArg", doc="none", optional=true)
+        public boolean toAnnotatate = false;
         @Override
         public Map<String, Object> annotate(ReferenceContext ref, VariantContext vc, ReadLikelihoods<Allele> likelihoods) {
-            return Collections.singletonMap("Test","foo");
+            if (!toAnnotatate) {
+                return Collections.singletonMap("Parent","foo");
+            } else {
+                return Collections.emptyMap();
+            }
         }
         @Override
         public List<String> getKeyNames() {
