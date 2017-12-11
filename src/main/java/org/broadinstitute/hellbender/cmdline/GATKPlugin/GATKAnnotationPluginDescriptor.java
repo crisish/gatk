@@ -208,11 +208,6 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
             // associating the discovered annotations with their defined groups.
             if ((inter != pluginBaseClass) && (pluginBaseClass.isAssignableFrom(inter))) {
                 discoveredGroups.merge(inter.getSimpleName(), Collections.singletonList(annot), (a, b) -> Stream.concat(a.stream(), b.stream()).collect(Collectors.toList()));
-
-//                // If its a valid group, check whether the tool requested that group and add it to default annotations
-//                if (toolDefaultGroups.contains(inter.getSimpleName()) && !toolDefaultAnnotations.containsKey(simpleName)) {
-//                    toolDefaultAnnotations.put(simpleName, annot);
-//                }
             }
         }
     }
