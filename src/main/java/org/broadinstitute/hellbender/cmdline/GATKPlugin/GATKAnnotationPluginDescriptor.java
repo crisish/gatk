@@ -201,13 +201,16 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
     // We must discover annotation groups and store them for each instance so we can resolve group membership
     // for command line including of groups based on their simple name.
     private void populateAnnotationGroups(final String simpleName, final Annotation annot) {
-        Class<?>[] interfaces = annot.getClass().getInterfaces();
-        for (Class<?> inter : interfaces) {
+        Queue<Class<?>> interfaces = new LinkedList<>();
+        Collections.addAll(interfaces, annot.getClass().getInterfaces());
+        while (!interfaces.isEmpty()) {
+            Class<?> inter = interfaces.poll();
             // Following with how groups are currently defined and discovered, namely they are interfaces that
             // extend Annotation, groups are discovered by interrogating annotations for their interfaces and
             // associating the discovered annotations with their defined groups.
             if ((inter != pluginBaseClass) && (pluginBaseClass.isAssignableFrom(inter))) {
                 discoveredGroups.merge(inter.getSimpleName(), Collections.singletonList(annot), (a, b) -> Stream.concat(a.stream(), b.stream()).collect(Collectors.toList()));
+                Collections.addAll(interfaces, inter.getInterfaces());
             }
         }
     }

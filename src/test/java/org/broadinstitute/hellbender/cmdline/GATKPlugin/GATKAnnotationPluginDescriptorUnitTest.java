@@ -206,28 +206,46 @@ public class GATKAnnotationPluginDescriptorUnitTest {
                 {Arrays.asList(new testChildAnnotation(), new testParentAnnotation()),
                         new String[0],
                         true,
-                        5},
-                {Arrays.asList(new testChildAnnotation(), new testParentAnnotation()),
+                        5,
+                        0},
+                {Arrays.asList(new testChildAnnotation(), new testParentAnnotation(), new InbreedingCoeff(Sets.newSet("s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"))),
+                        new String[0],
+                        true,
+                        5,
+                        -0.3333},
+                {Arrays.asList(new testChildAnnotation(), new testParentAnnotation(), new InbreedingCoeff(Sets.newSet("s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"))),
                         new String[]{"--"+StandardArgumentDefinitions.DISABLE_TOOL_DEFAULT_ANNOTATIONS},
                         false,
-                        5},
-                {Arrays.asList(new testChildAnnotation(), new testParentAnnotation()),
-                        new String[]{"--testParentArg"},
-                        false,
-                        5},
-                {Arrays.asList(new testChildAnnotation(), new testParentAnnotation()),
-                        new String[]{"--testChildArg", "10"},
+                        0,
+                        0},
+                {Arrays.asList(new testChildAnnotation(), new testParentAnnotation(), new InbreedingCoeff(Sets.newSet("s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"))),
+                        new String[]{"--founderID", "s1","--founderID", "s2","--founderID", "s3","--founderID", "s4","--founderID", "s5",
+                                "--founderID", "s6","--founderID", "s7","--founderID", "s8","--founderID", "s9","--founderID", "s10","--founderID", "s11"},
                         true,
-                        10},
-                {Arrays.asList(new testChildAnnotation(), new testParentAnnotation()),
-                        new String[]{"--testChildArg", "10", "--testParentArg"},
+                        5,
+                        -0.2941},
+                {Arrays.asList(new testChildAnnotation(), new testParentAnnotation(),new InbreedingCoeff(Sets.newSet("s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"))),
+                        new String[]{"--"+StandardArgumentDefinitions.DISABLE_TOOL_DEFAULT_ANNOTATIONS, "-A", "InbreedingCoeff"},
                         false,
-                        10}};
+                        0,
+                        -0.3333},
+                {Arrays.asList(new testChildAnnotation(), new testParentAnnotation(),new InbreedingCoeff(Sets.newSet("s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"))),
+                        new String[]{"--"+StandardArgumentDefinitions.DISABLE_TOOL_DEFAULT_ANNOTATIONS, "-G", "StandardAnnotation"},
+                        false,
+                        0,
+                        -0.3333},
+                {Arrays.asList(new testChildAnnotation(), new testParentAnnotation(),new InbreedingCoeff(Sets.newSet("s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"))),
+                        new String[]{"--"+StandardArgumentDefinitions.DISABLE_TOOL_DEFAULT_ANNOTATIONS, "-G", "StandardAnnotation", "--founderID",
+                                "s1","--founderID", "s2","--founderID", "s3","--founderID", "s4","--founderID", "s5", "--founderID", "s6",
+                                "--founderID", "s7","--founderID", "s8","--founderID", "s9","--founderID", "s10","--founderID", "s11", "-G", "ParentAnnotationGroup" },
+                        true,
+                        5,
+                        -0.2941},};
 
     }
 
     @Test (dataProvider = "artificialAnnotationsTests")
-    public void testMultipleOptionalArguments(final List<Annotation> classes, final String[] arguments, final boolean expectingParent, final int expectedChild) {
+    public void testMultipleOptionalArguments(final List<Annotation> classes, final String[] arguments, final boolean expectingParent, final int expectedChild, final double inbreedingValue) {
         CommandLineParser clp = new CommandLineArgumentParser(
                 new Object(),
                 Collections.singletonList(new GATKAnnotationPluginDescriptor(classes, null)),
@@ -235,11 +253,12 @@ public class GATKAnnotationPluginDescriptorUnitTest {
 
         clp.parseArguments(nullMessageStream, arguments);
         VariantAnnotatorEngine vae = new VariantAnnotatorEngine(instantiateAnnotations(clp), null, Collections.emptyList(), false);
-        VariantContext vc = makeVC("source", Arrays.asList(Aref, T),makeG("s1", Aref, T, 2530, 0, 7099, 366, 3056, 14931));
+        VariantContext vc = inbreedingCoefficientVC;
         vc = vae.annotateContext(vc, new FeatureContext(), null, null, a->true);
 
         Assert.assertEquals(vc.getAttribute("Parent"), expectingParent?"foo":null);
-        Assert.assertEquals(vc.getAttribute("Child"), Integer.toString(expectedChild));
+        Assert.assertEquals(vc.getAttributeAsInt("Child", 0), expectedChild);
+        Assert.assertEquals(vc.getAttributeAsDouble(GATKVCFConstants.INBREEDING_COEFFICIENT_KEY, 0), inbreedingValue);
     }
 
     @Test
@@ -397,7 +416,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
     // Though current annotation groups aren't implemented in a hierarchical manner, this test enforces that they would behave
     // in an expected manner as well as testing that annotation groups can be dynamically discovered
     @Test (dataProvider = "groupHierarchyArguments")
-    public void testGroupHiearchyBehavior(String[] args, boolean includeChild, boolean includeParent){
+    public void testGroupHierarchyBehavior(String[] args, boolean includeChild, boolean includeParent){
         testChildAnnotation childAnnotation = new testChildAnnotation();
         testParentAnnotation parentAnnotation = new testParentAnnotation();
         CommandLineParser clp = new CommandLineArgumentParser(
@@ -413,7 +432,6 @@ public class GATKAnnotationPluginDescriptorUnitTest {
     private interface ParentAnnotationGroup extends Annotation { }
     private interface ChildAnnotationGroup extends ParentAnnotationGroup { }
     class testChildAnnotation extends InfoFieldAnnotation implements ChildAnnotationGroup  {
-        @Argument(fullName = "testChildArg", shortName = "testChildArg", doc="none", optional=true)
         public int argument = 5;
         @Override
         public Map<String, Object> annotate(ReferenceContext ref, VariantContext vc, ReadLikelihoods<Allele> likelihoods) {
@@ -425,7 +443,6 @@ public class GATKAnnotationPluginDescriptorUnitTest {
         }
     }
     private class testParentAnnotation extends InfoFieldAnnotation implements ParentAnnotationGroup  {
-        @Argument(fullName = "testParentArg", shortName = "testParentArg", doc="none", optional=true)
         public boolean toAnnotatate = false;
         @Override
         public Map<String, Object> annotate(ReferenceContext ref, VariantContext vc, ReadLikelihoods<Allele> likelihoods) {
