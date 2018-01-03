@@ -9,17 +9,13 @@ import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.engine.FeatureContext;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
 import org.broadinstitute.hellbender.exceptions.GATKException;
-import org.broadinstitute.hellbender.tools.AnnotatePairOrientation;
 import org.broadinstitute.hellbender.tools.walkers.annotator.*;
 import org.broadinstitute.hellbender.utils.genotyper.ReadLikelihoods;
-import org.broadinstitute.hellbender.utils.test.VariantContextTestUtils;
 import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
-import org.broadinstitute.barclay.argparser.Argument;
 import org.mockito.internal.util.collections.Sets;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-import scala.tools.nsc.transform.patmat.ScalaLogic;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -71,7 +67,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
 
     private List<Annotation> instantiateAnnotations(final CommandLineParser clp) {
         GATKAnnotationPluginDescriptor annotationPlugin = clp.getPluginDescriptor(GATKAnnotationPluginDescriptor.class);
-        return Arrays.asList(annotationPlugin.getFinalAnnoationsList().toArray(new Annotation[0]));
+        return Arrays.asList(annotationPlugin.getFinalAnnotationsList().toArray(new Annotation[0]));
     }
 
     @DataProvider
@@ -168,36 +164,25 @@ public class GATKAnnotationPluginDescriptorUnitTest {
         clp.parseArguments(nullMessageStream, args);
     }
 
-    // Annotations with arguments to verify annotation test method actually filters
-    @DataProvider
-    public Object[][] annotationsWithGoodArguments(){
-        return new Object[][]{
-                { InbreedingCoeff.class.getSimpleName(), (Consumer<Annotation>)a -> {
-                            Assert.assertEquals(Double.valueOf((String) ((InbreedingCoeff) a)
-                                            .annotate(null, inbreedingCoefficientVC, null)
-                                            .get(GATKVCFConstants.INBREEDING_COEFFICIENT_KEY)),
-                                    -0.3333333, 0.001, "InbreedingCoefficientScores"); },
-                        "--founderID", new String[]{"s1", "s2",  "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"} },};
-    }
-
-    @Test(dataProvider = "annotationsWithGoodArguments")
-    public void testAnnotationArguments(
-            final String annotation,
-            final Consumer<Annotation> condition,
-            final String argName,
-            final String[] argValues) {
+    @Test
+    public void testAnnotationArguments() {
         CommandLineParser clp = new CommandLineArgumentParser(
                 new Object(),
                 Collections.singletonList(new GATKAnnotationPluginDescriptor(null, null)),
                 Collections.emptySet());
 
-        List<String> args = Stream.of("--annotation", annotation).collect(Collectors.toList());
-        Arrays.asList(argValues).forEach(arg -> {args.addAll(Arrays.asList(argName, arg));});
+        List<String> args = Stream.of("--annotation", InbreedingCoeff.class.getSimpleName() ).collect(Collectors.toList());
+        Arrays.asList(new String[]{"s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"}).forEach(arg -> {
+            args.addAll(Arrays.asList("--founderID", arg));
+        });
 
         clp.parseArguments(nullMessageStream, args.toArray(new String[args.size()]));
         List<Annotation> rf = instantiateAnnotations(clp);
         Assert.assertEquals(rf.size(), 1);
-        condition.accept(rf.get(0));
+        Assert.assertEquals(Double.valueOf((String) ((InbreedingCoeff) rf.get(0))
+                        .annotate(null, inbreedingCoefficientVC, null)
+                        .get(GATKVCFConstants.INBREEDING_COEFFICIENT_KEY)),
+                -0.3333333, 0.001, "InbreedingCoefficientScores");
     }
 
     @DataProvider
@@ -259,6 +244,29 @@ public class GATKAnnotationPluginDescriptorUnitTest {
         Assert.assertEquals(vc.getAttribute("Parent"), expectingParent?"foo":null);
         Assert.assertEquals(vc.getAttributeAsInt("Child", 0), expectedChild);
         Assert.assertEquals(vc.getAttributeAsDouble(GATKVCFConstants.INBREEDING_COEFFICIENT_KEY, 0), inbreedingValue);
+    }
+
+    @Test
+    public void testHierarchicalAnnotationDiscovery() {
+        List<Class<? extends Annotation>> annotationDiscovery = Arrays.asList(InbreedingCoeff.class, RMSMappingQuality.class, testChildAnnotation.class, testParentAnnotation.class);
+        GATKAnnotationPluginDescriptor pluginDescriptor = new GATKAnnotationPluginDescriptor(null, Collections.singletonList(ParentAnnotationGroup.class));
+
+        annotationDiscovery.forEach(a -> {
+            try {
+                pluginDescriptor.getInstance(a);
+            } catch (IllegalAccessException | InstantiationException e) {
+                e.printStackTrace();
+                return;
+            }
+        });
+        pluginDescriptor.validateArguments();
+
+        VariantAnnotatorEngine vae = new VariantAnnotatorEngine(Arrays.asList(pluginDescriptor.getFinalAnnotationsList().toArray(new Annotation[0])), null, Collections.emptyList(), false);
+        VariantContext vc = inbreedingCoefficientVC;
+        vc = vae.annotateContext(vc, new FeatureContext(), null, null, a->true);
+
+        Assert.assertEquals(vc.getAttribute("Parent"), "foo");
+        Assert.assertEquals(vc.getAttributeAsInt("Child", 0), 5);
     }
 
     @Test
@@ -429,10 +437,26 @@ public class GATKAnnotationPluginDescriptorUnitTest {
         Assert.assertEquals(annots.contains(parentAnnotation), includeParent);
     }
 
+    @Test
+    public void testOverridingInstancesWithGetInstance() throws InstantiationException, IllegalAccessException {
+        GATKAnnotationPluginDescriptor pluginDescriptor = new GATKAnnotationPluginDescriptor(Collections.singletonList(new testParentAnnotation(true)), null);
+        pluginDescriptor.getInstance(testParentAnnotation.class);
+
+        Collection<Annotation> finalAnnotations = pluginDescriptor.getFinalAnnotationsList();
+        Assert.assertEquals(finalAnnotations.size(), 1);
+
+        VariantAnnotatorEngine vae = new VariantAnnotatorEngine(Arrays.asList(finalAnnotations.toArray(new Annotation[0])), null, Collections.emptyList(), false);
+        VariantContext vc = inbreedingCoefficientVC;
+        vc = vae.annotateContext(vc, new FeatureContext(), null, null, a->true);
+
+        Assert.assertEquals(vc.getAttribute("Parent"), null);
+    }
+
     private interface ParentAnnotationGroup extends Annotation { }
     private interface ChildAnnotationGroup extends ParentAnnotationGroup { }
-    class testChildAnnotation extends InfoFieldAnnotation implements ChildAnnotationGroup  {
+    static class testChildAnnotation extends InfoFieldAnnotation implements ChildAnnotationGroup  {
         public int argument = 5;
+        
         @Override
         public Map<String, Object> annotate(ReferenceContext ref, VariantContext vc, ReadLikelihoods<Allele> likelihoods) {
             return Collections.singletonMap("Child",Integer.toString(argument));
@@ -442,11 +466,18 @@ public class GATKAnnotationPluginDescriptorUnitTest {
             return Collections.singletonList("Test");
         }
     }
-    private class testParentAnnotation extends InfoFieldAnnotation implements ParentAnnotationGroup  {
-        public boolean toAnnotatate = false;
+    static class testParentAnnotation extends InfoFieldAnnotation implements ParentAnnotationGroup  {
+        boolean dontAnnotate = false;
+
+        testParentAnnotation() { }
+
+        testParentAnnotation(boolean toAnnotate) {
+            this.dontAnnotate = toAnnotate;
+        }
+
         @Override
         public Map<String, Object> annotate(ReferenceContext ref, VariantContext vc, ReadLikelihoods<Allele> likelihoods) {
-            if (!toAnnotatate) {
+            if (!dontAnnotate) {
                 return Collections.singletonMap("Parent","foo");
             } else {
                 return Collections.emptyMap();

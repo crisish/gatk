@@ -18,15 +18,15 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * A plugin descriptor for managing the dynamic discovery of both @{InfoFieldAnnotation} and @{GenotypeAnnotation} objects
- * within the packages defined the method getPackageNames() (default {@link org.broadinstitute.hellbender.tools.walkers.annotator}).
+ * A plugin descriptor for managing the dynamic discovery of both {@link org.broadinstitute.hellbender.tools.walkers.annotator.InfoFieldAnnotation} and {@link org.broadinstitute.hellbender.tools.walkers.annotator.GenotypeAnnotation} objects
+ * within the packages defined by the method getPackageNames() (default {@link org.broadinstitute.hellbender.tools.walkers.annotator}).
  * Also handles integrating annotation specific arguments from the command line with tool specified defaults.
  *
  * Unlike {@link GATKReadFilterPluginDescriptor} annotation order is not important and thus argument order is not guaranteed to be
  * preserved in all cases, especially when group annotations are involved.
  *
- * An alternative method for discovering annotations would be to use ClassUtils.knownSubInterfaceSimpleNames(Annotation.class);
- * Which is the preferred way to discover Annotations for testing purposes.
+ * An alternative method for discovering annotations is ClassUtils.knownSubInterfaceSimpleNames(Annotation.class), which can
+ * be invoked in absence of command line inputs.
  *
  * NOTE: this class enforces that annotations with required arguments must see their arguments, yet this is not currently tested
  *       as no such annotations exist in the GATK.
@@ -56,7 +56,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
 
     // Map of annotation group name to list of annotations flagged with that group. The key here the simple name of the interface
     // that describes the annotation group.
-    private final Map<String, List<Annotation>> discoveredGroups = new HashMap<>();
+    private final Map<String, Map<String, Annotation>> discoveredGroups = new HashMap<>();
 
     /**
      * @return the class object for the base class of all plugins managed by this descriptor
@@ -208,8 +208,11 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
             // Following with how groups are currently defined and discovered, namely they are interfaces that
             // extend Annotation, groups are discovered by interrogating annotations for their interfaces and
             // associating the discovered annotations with their defined groups.
+            // If a duplicate annotation is added, the group will opt to keep the old instantiation around
             if ((inter != pluginBaseClass) && (pluginBaseClass.isAssignableFrom(inter))) {
-                discoveredGroups.merge(inter.getSimpleName(), Collections.singletonList(annot), (a, b) -> Stream.concat(a.stream(), b.stream()).collect(Collectors.toList()));
+                Map<String, Annotation> groupIdentity = (discoveredGroups.containsKey(inter.getSimpleName()) ? discoveredGroups.get(inter.getSimpleName()) : new HashMap<>());
+                groupIdentity.putIfAbsent(simpleName, annot);
+                discoveredGroups.put(inter.getSimpleName(), groupIdentity);
                 Collections.addAll(interfaces, inter.getInterfaces());
             }
         }
@@ -248,7 +251,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
             isAllowed = Stream.of(userArgs.getUserEnabledAnnotationGroups(), toolDefaultGroups)
                     .flatMap(Collection::stream)
                     .anyMatch(group ->
-                            discoveredGroups.containsKey(group) && discoveredGroups.get(group).stream().anyMatch(s -> s.getClass().getSimpleName().equals(predecessorName)));
+                            discoveredGroups.containsKey(group) && discoveredGroups.get(group).keySet().stream().anyMatch(s -> s.equals(predecessorName)));
         }
         if (isAllowed) {
             // Keep track of the ones we allow so we can validate later that they weren't subsequently disabled
@@ -350,7 +353,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
             }
         });
 
-        // throw if an annotation name was specified that has no corresponding instance
+        // throw if an annotation group was specified that has no corresponding instance
         userArgs.getUserEnabledAnnotationGroups().forEach(s -> {
             if (!discoveredGroups.containsKey(s)) {
                 throw new CommandLineException("Unrecognized annotation group name: " + s);
@@ -359,7 +362,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
 
         // Populating the tool default annotations with the ones requested by groups
         for (String group : toolDefaultGroups ) {
-            for (Annotation annot : discoveredGroups.get(group)) {
+            for (Annotation annot : discoveredGroups.get(group).values()) {
                 toolDefaultAnnotations.put(annot.getClass().getSimpleName(), annot);
             }
         }
@@ -394,7 +397,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
         // Note we used a hash set here to prevent duplicating annotations that were explicitly added and pulled in from a group
         final LinkedHashSet<Annotation> annotations = new LinkedHashSet<>();
         userArgs.getUserEnabledAnnotationGroups().forEach(s -> {
-            List<Annotation> as = discoveredGroups.get(s);
+            Collection<Annotation> as = discoveredGroups.get(s).values();
             annotations.addAll(as);
         });
         userArgs.getUserEnabledAnnotationNames().forEach(s -> {
@@ -424,14 +427,14 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      *
      * @return An unordered Collection of annotations.
      */
-    public Collection<Annotation> getFinalAnnoationsList() {
+    public Collection<Annotation> getFinalAnnotationsList() {
         final SortedSet<Annotation> annotations = new TreeSet<>(Comparator.comparing(t -> t.getClass().getSimpleName()));
 
         if (!userArgs.getDisableToolDefaultAnnotations()) {
             annotations.addAll(toolDefaultAnnotations.values());
         }
         for (String group : userArgs.getUserEnabledAnnotationGroups()) {
-            annotations.addAll(discoveredGroups.get(group));
+            annotations.addAll(discoveredGroups.get(group).values());
         }
         for (String annotation : userArgs.getUserEnabledAnnotationNames()) {
             annotations.add(allDiscoveredAnnotations.get(annotation));
