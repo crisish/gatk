@@ -50,20 +50,22 @@ public final class InbreedingCoeff extends PedigreeAnnotation implements Standar
     private static final boolean ROUND_GENOTYPE_COUNTS = false;
 
     @Argument(fullName = "founderID", shortName = "founderID", doc="Samples representing the population \"founders\"", optional=true)
-    private final List<String> founderIds;
+    private List<String> founderIds;
 
     public InbreedingCoeff(){
         super((Set<String>) null);
+        //If available, get the founder IDs and cache them. the IC will only be computed on founders then.
+        this.founderIds = founderIds == null? new ArrayList<>() : new ArrayList<>(founderIds);
     }
 
     public InbreedingCoeff(final Set<String> founderIds){
         super(founderIds);
+        //If available, get the founder IDs and cache them. the IC will only be computed on founders then.
+        this.founderIds = founderIds == null? new ArrayList<>() : new ArrayList<>(founderIds);
     }
 
     public InbreedingCoeff(final File pedigreeFile){
         super(pedigreeFile);
-        //If available, get the founder IDs and cache them. the IC will only be computed on founders then.
-        this.founderIds = founderIds == null? new ArrayList<>() : new ArrayList<>(founderIds);
     }
 
     @Override
