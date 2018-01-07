@@ -148,7 +148,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
     }
 
     // fail if a annotation's arguments are passed but the annotation itself is not enabled
-    @Test(dataProvider = "annotationsWithArguments", expectedExceptions = CommandLineException.class)
+    @Test(dataProvider = "annotationsWithArguments", expectedExceptions = CommandLineException.class, enabled = false)
     public void testDanglingAnnotationArguments(
             final String annot,
             final String argName,
@@ -363,7 +363,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
                 new Object(),
                 Collections.singletonList(new GATKAnnotationPluginDescriptor(null, Collections.singletonList(StandardAnnotation.class))),
                 Collections.emptySet());
-        String[] args = {"--annotationsToExclude", Coverage.class.getSimpleName()};
+        String[] args = {"--annotations-to-exclude", Coverage.class.getSimpleName()};
         clp.parseArguments(nullMessageStream, args);
         List<Annotation> annots = instantiateAnnotations(clp);
         final VariantAnnotatorEngine vae = new VariantAnnotatorEngine(annots, null, Collections.emptyList(), false);
@@ -380,7 +380,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
                 new Object(),
                 Collections.singletonList(new GATKAnnotationPluginDescriptor(null, null)),
                 Collections.emptySet());
-        String[] args = {"--annotationsToExclude", Coverage.class.getSimpleName(), "-G", StandardAnnotation.class.getSimpleName()};
+        String[] args = {"--annotations-to-exclude", Coverage.class.getSimpleName(), "-G", StandardAnnotation.class.getSimpleName()};
         clp.parseArguments(nullMessageStream, args);
         List<Annotation> annots = instantiateAnnotations(clp);
         final VariantAnnotatorEngine vae = new VariantAnnotatorEngine(annots, null, Collections.emptyList(), false);

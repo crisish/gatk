@@ -2,15 +2,18 @@ package org.broadinstitute.hellbender.cmdline.GATKPlugin;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.barclay.argparser.ArgumentCollection;
 import org.broadinstitute.barclay.argparser.CommandLineException;
 import org.broadinstitute.barclay.argparser.CommandLinePluginDescriptor;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.tools.walkers.annotator.Annotation;
+import org.broadinstitute.hellbender.tools.walkers.annotator.PedigreeAnnotation;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.reflections.ReflectionUtils;
 
+import java.io.File;
 import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.function.Predicate;
@@ -57,6 +60,13 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
     // Map of annotation group name to list of annotations flagged with that group. The key here the simple name of the interface
     // that describes the annotation group.
     private final Map<String, Map<String, Annotation>> discoveredGroups = new HashMap<>();
+
+    // Annotation arguments that are shared and thus must be part of the plugin descriptor
+    @Argument(fullName = "founderID", shortName = "founderID", doc="Samples representing the population \"founders\"", optional=true)
+    private List<String> founderIds;
+
+    @Argument(fullName = "pedigree", shortName = "ped", doc="Pedigree file for determining the population \"founders\"", optional=true)
+    private File pedigreeFile;
 
     /**
      * @return the class object for the base class of all plugins managed by this descriptor
@@ -366,6 +376,8 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
                 toolDefaultAnnotations.put(annot.getClass().getSimpleName(), annot);
             }
         }
+
+        allDiscoveredAnnotations.values().stream().filter(PedigreeAnnotation.class::isInstance).map(a ->(PedigreeAnnotation)a).forEach(a -> {if (founderIds!=null && !founderIds.isEmpty()) a.setFounderIds(founderIds); if (pedigreeFile!=null) a.setPedigreeFile(pedigreeFile);});
     }
 
     /**
