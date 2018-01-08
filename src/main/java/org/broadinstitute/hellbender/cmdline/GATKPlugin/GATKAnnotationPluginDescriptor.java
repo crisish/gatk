@@ -240,7 +240,12 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
             return allDiscoveredAnnotations.keySet();
         }
         if (longArgName.equals(StandardArgumentDefinitions.ANNOTATIONS_TO_EXCLUDE_LONG_NAME)) {
-            return toolDefaultAnnotations.keySet();
+            Set<String> annotations = toolDefaultGroups.stream().map(k -> discoveredGroups.get(k).keySet()).flatMap(Collection::stream).collect(Collectors.toSet());
+            annotations.addAll(toolDefaultAnnotations.keySet());
+            return annotations;
+        }
+        if (longArgName.equals(StandardArgumentDefinitions.ANNOTATION_GROUP_LONG_NAME)) {
+            return discoveredGroups.keySet();
         }
         throw new IllegalArgumentException("Allowed values request for unrecognized string argument: " + longArgName);
     }
@@ -328,7 +333,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
                     logger.warn(String.format("Redundant enabled annotation group (%s) is enabled for this tool by default", s));
                 });
 
-        // Throw if args were specified for a annotation that was also disabled, or that was not enabled by the
+        // Throw if args were specified for an annotation that was also disabled, or that was not enabled by the
         // tool by default.
         //
         // Note that this is also checked during command line argument parsing, but needs to be checked again
@@ -377,7 +382,12 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
             }
         }
 
-        allDiscoveredAnnotations.values().stream().filter(PedigreeAnnotation.class::isInstance).map(a ->(PedigreeAnnotation)a).forEach(a -> {if (founderIds!=null && !founderIds.isEmpty()) a.setFounderIds(founderIds); if (pedigreeFile!=null) a.setPedigreeFile(pedigreeFile);});
+        // Populating any discovered pedigree annotations with the pedigree arguments from the command line.
+        allDiscoveredAnnotations.values().stream()
+                .filter(PedigreeAnnotation.class::isInstance)
+                .map(a ->(PedigreeAnnotation)a)
+                .forEach(a -> {if (founderIds!=null && !founderIds.isEmpty()) a.setFounderIds(founderIds);
+                               if (pedigreeFile!=null) a.setPedigreeFile(pedigreeFile);});
     }
 
     /**
@@ -395,43 +405,6 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
     }
 
     /**
-     * Pass back the list of Annotation instances that were actually seen on the command line in the annotations
-     * originating from groups first, followed by individual annotations in order. Its possible for this to return
-     * an annotation that was originally included in the list of tool defaults only in the case where the user also
-     * specifies it on the command line.
-     * <p>
-     * NOTE: this method is somewhat misnamed in that it doesn't return ALL instances since it leaves out
-     * default annotations (Except as noted above). The refactored interface in Barclay renames this method and
-     * changes it's contract. We'll change the implementation when we integrate the updated interface.
-     */
-    @Override
-    public List<Annotation> getAllInstances() {
-        // Note we used a hash set here to prevent duplicating annotations that were explicitly added and pulled in from a group
-        final LinkedHashSet<Annotation> annotations = new LinkedHashSet<>();
-        userArgs.getUserEnabledAnnotationGroups().forEach(s -> {
-            Collection<Annotation> as = discoveredGroups.get(s).values();
-            annotations.addAll(as);
-        });
-        userArgs.getUserEnabledAnnotationNames().forEach(s -> {
-            Annotation annot = allDiscoveredAnnotations.get(s);
-            annotations.add(annot);
-        });
-        return new ArrayList<>(annotations);
-    }
-
-
-    /**
-     * Return the class representing the instance of the plugin specified by {@code pluginName}
-     *
-     * @param pluginName Name of the plugin requested
-     * @return Class object for the plugin instance requested
-     */
-    @Override
-    public Class<?> getClassForInstance(final String pluginName) {
-        return allDiscoveredAnnotations.get(pluginName).getClass();
-    }
-
-    /**
      * Merge the default annotations with the users's command line annotation requests, then initialize
      * the resulting annotations. Specifically, unless the user disables all tool default annotations it will
      * first add all the tool enabled annotations which were not individually blocked by the user and then
@@ -439,7 +412,8 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      *
      * @return An unordered Collection of annotations.
      */
-    public Collection<Annotation> getFinalAnnotationsList() {
+    @Override
+    public List<Annotation> getAllInstances() {
         final SortedSet<Annotation> annotations = new TreeSet<>(Comparator.comparing(t -> t.getClass().getSimpleName()));
 
         if (!userArgs.getDisableToolDefaultAnnotations()) {
@@ -452,5 +426,17 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
             annotations.add(allDiscoveredAnnotations.get(annotation));
         }
         return annotations.stream().filter(t -> !userArgs.getUserDisabledAnnotationNames().contains(t.getClass().getSimpleName())).collect(Collectors.toList());
+    }
+
+
+    /**
+     * Return the class representing the instance of the plugin specified by {@code pluginName}
+     *
+     * @param pluginName Name of the plugin requested
+     * @return Class object for the plugin instance requested
+     */
+    @Override
+    public Class<?> getClassForInstance(final String pluginName) {
+        return allDiscoveredAnnotations.containsKey(pluginName)?allDiscoveredAnnotations.get(pluginName).getClass():null;
     }
 }

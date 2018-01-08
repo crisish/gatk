@@ -10,6 +10,8 @@ import org.broadinstitute.hellbender.engine.FeatureContext;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.tools.walkers.annotator.*;
+import org.broadinstitute.hellbender.tools.walkers.annotator.allelespecific.AS_RMSMappingQuality;
+import org.broadinstitute.hellbender.tools.walkers.annotator.allelespecific.AS_StandardAnnotation;
 import org.broadinstitute.hellbender.utils.genotyper.ReadLikelihoods;
 import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
 import org.mockito.internal.util.collections.Sets;
@@ -67,7 +69,72 @@ public class GATKAnnotationPluginDescriptorUnitTest {
 
     private List<Annotation> instantiateAnnotations(final CommandLineParser clp) {
         GATKAnnotationPluginDescriptor annotationPlugin = clp.getPluginDescriptor(GATKAnnotationPluginDescriptor.class);
-        return Arrays.asList(annotationPlugin.getFinalAnnotationsList().toArray(new Annotation[0]));
+        return Arrays.asList(annotationPlugin.getAllInstances().toArray(new Annotation[0]));
+    }
+
+    @DataProvider(name = "defaultFiltersForAllowedValues")
+    public Object[][] defaultFiltersForAllowedValues() {
+        return new Object[][] {
+                {Collections.emptyList()},
+                {Collections.singletonList(new InbreedingCoeff())},
+                {Arrays.asList(new RMSMappingQuality(), new InbreedingCoeff())},
+                {Arrays.asList(new InbreedingCoeff(), new RMSMappingQuality())}
+        };
+    }
+
+    @Test(dataProvider = "defaultFiltersForAllowedValues")
+    public void testGetAllowedValuesForDescriptorArgument(final List<Annotation> defaultFilters) {
+        final CommandLineParser clp = new CommandLineArgumentParser(
+                new Object(),
+                Collections.singletonList(new GATKAnnotationPluginDescriptor(defaultFilters, null)),
+                Collections.emptySet());
+        clp.parseArguments(nullMessageStream, new String[]{});
+
+        final GATKAnnotationPluginDescriptor pluginDescriptor = clp.getPluginDescriptor(GATKAnnotationPluginDescriptor.class);
+
+        // the help for disable-annotation should point out to the default filters in the order provided
+        Assert.assertEquals(pluginDescriptor.getAllowedValuesForDescriptorArgument(StandardArgumentDefinitions.ANNOTATIONS_TO_EXCLUDE_LONG_NAME),
+                defaultFilters.stream().map(rf -> rf.getClass().getSimpleName()).collect(Collectors.toSet()));
+
+        // test if the help for annotation is not empty after parsing: if custom validation throws, the help should print the annotations available
+        // the complete set could not checked because that requires to discover all the implemented annotations
+        Assert.assertFalse(pluginDescriptor.getAllowedValuesForDescriptorArgument(StandardArgumentDefinitions.ANNOTATION_LONG_NAME).isEmpty());
+
+        // test if the help for annotation is not empty after parsing: if custom validation throws, the help should print the annotations available
+        // the complete set could not checked because that requires knowing all the implemented annotation groups
+        Assert.assertFalse(pluginDescriptor.getAllowedValuesForDescriptorArgument(StandardArgumentDefinitions.ANNOTATION_GROUP_LONG_NAME).isEmpty());
+    }
+
+    @Test
+    public void testGetAllowedValuesForDescriptorArgumentGroups() {
+        final CommandLineParser clp = new CommandLineArgumentParser(
+                new Object(),
+                Collections.singletonList(new GATKAnnotationPluginDescriptor(null, Collections.singletonList(AS_StandardAnnotation.class))),
+        Collections.emptySet());
+        clp.parseArguments(nullMessageStream, new String[]{});
+
+        final GATKAnnotationPluginDescriptor pluginDescriptor = clp.getPluginDescriptor(GATKAnnotationPluginDescriptor.class);
+
+        // the help for disable-annotation should point out to the default filters in the order provided
+        Assert.assertTrue(pluginDescriptor.getAllowedValuesForDescriptorArgument(StandardArgumentDefinitions.ANNOTATIONS_TO_EXCLUDE_LONG_NAME).contains(AS_RMSMappingQuality.class.getSimpleName()));
+    }
+
+    @Test
+    public void testGetDefaultInstances() {
+        final CommandLineParser clp = new CommandLineArgumentParser(
+                new Object(),
+                Collections.singletonList(new GATKAnnotationPluginDescriptor(Collections.singletonList(RMSMappingQuality.getInstance()), Collections.singletonList(AS_StandardAnnotation.class))),
+                Collections.emptySet());
+        clp.parseArguments(nullMessageStream, new String[]{});
+
+        final GATKAnnotationPluginDescriptor pluginDescriptor = clp.getPluginDescriptor(GATKAnnotationPluginDescriptor.class);
+
+        // Assert that we see the annotation we asked for explicitly
+        Assert.assertTrue(pluginDescriptor.getDefaultInstances().stream().anyMatch(a -> a instanceof RMSMappingQuality));
+        // Assert but not one we didn't
+        Assert.assertFalse(pluginDescriptor.getDefaultInstances().stream().anyMatch(a -> a instanceof ExcessHet));
+        // But still see the group annotations
+        Assert.assertTrue(pluginDescriptor.getDefaultInstances().stream().anyMatch(a -> a instanceof AS_RMSMappingQuality));;
     }
 
     @DataProvider
@@ -109,6 +176,8 @@ public class GATKAnnotationPluginDescriptorUnitTest {
                 { Arrays.asList("-A", "StandardAnnotation")},
                 { Arrays.asList("-A", "RMSMappingQuality", "-A", "RMSMappingQuality")},
                 { Arrays.asList("-A", "RMSMappingQuality", "-AX", "RMSMappingQuality")},
+                { Arrays.asList("-G", "StandardAnnotation", "-AX", "RMSMappingQuality", "-AX", "RMSMappingQuality")},
+                // { Arrays.asList("-AX", "RMSMappingQuality")}, This is just a warning for now
                 { Arrays.asList("-A", "foo")},
                 { Arrays.asList("-A", "VariantAnnotator")}};
         return out;
@@ -261,7 +330,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
         });
         pluginDescriptor.validateArguments();
 
-        VariantAnnotatorEngine vae = new VariantAnnotatorEngine(Arrays.asList(pluginDescriptor.getFinalAnnotationsList().toArray(new Annotation[0])), null, Collections.emptyList(), false);
+        VariantAnnotatorEngine vae = new VariantAnnotatorEngine(Arrays.asList(pluginDescriptor.getAllInstances().toArray(new Annotation[0])), null, Collections.emptyList(), false);
         VariantContext vc = inbreedingCoefficientVC;
         vc = vae.annotateContext(vc, new FeatureContext(), null, null, a->true);
 
@@ -341,6 +410,21 @@ public class GATKAnnotationPluginDescriptorUnitTest {
         final VariantAnnotatorEngine vae = new VariantAnnotatorEngine(annots, null, Collections.emptyList(), false);
         Assert.assertTrue(vae.getGenotypeAnnotations().isEmpty());
         Assert.assertTrue(vae.getInfoAnnotations().isEmpty());
+    }
+
+    @Test
+    public void testGetClassForInstance(){
+        CommandLineParser clp = new CommandLineArgumentParser(
+                new Object(),
+                Collections.singletonList(new GATKAnnotationPluginDescriptor(null, null)),
+                Collections.emptySet());
+        String[] args = {};
+        clp.parseArguments(nullMessageStream, args);
+
+        final GATKAnnotationPluginDescriptor pluginDescriptor = clp.getPluginDescriptor(GATKAnnotationPluginDescriptor.class);
+
+        Assert.assertTrue(pluginDescriptor.getClassForInstance(RMSMappingQuality.class.getSimpleName()).isInstance(new RMSMappingQuality()));
+        Assert.assertTrue(pluginDescriptor.getClassForInstance("Foo")==null);
     }
 
     @Test
@@ -442,7 +526,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
         GATKAnnotationPluginDescriptor pluginDescriptor = new GATKAnnotationPluginDescriptor(Collections.singletonList(new testParentAnnotation(true)), null);
         pluginDescriptor.getInstance(testParentAnnotation.class);
 
-        Collection<Annotation> finalAnnotations = pluginDescriptor.getFinalAnnotationsList();
+        Collection<Annotation> finalAnnotations = pluginDescriptor.getAllInstances();
         Assert.assertEquals(finalAnnotations.size(), 1);
 
         VariantAnnotatorEngine vae = new VariantAnnotatorEngine(Arrays.asList(finalAnnotations.toArray(new Annotation[0])), null, Collections.emptyList(), false);
