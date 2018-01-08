@@ -7,6 +7,7 @@ import org.broadinstitute.barclay.argparser.ArgumentCollection;
 import org.broadinstitute.barclay.argparser.CommandLineException;
 import org.broadinstitute.barclay.argparser.CommandLinePluginDescriptor;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
+import org.broadinstitute.hellbender.engine.filters.CountingReadFilter;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.tools.walkers.annotator.Annotation;
 import org.broadinstitute.hellbender.tools.walkers.annotator.PedigreeAnnotation;
@@ -72,7 +73,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      * @return the class object for the base class of all plugins managed by this descriptor
      */
     @Override
-    public Class<?> getPluginClass() {
+    public Class<?> getPluginBaseClass() {
         return pluginBaseClass;
     }
 
@@ -136,13 +137,10 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
     }
 
     @Override
-    public Predicate<Class<?>> getClassFilter() {
-        return c -> {
-            // don't use the Annotation base class, it's inner classes, or the unit tests
-            return !c.getName().equals(this.getPluginClass().getName()) &&
+    public boolean includePluginClass(Class<?> c) {
+        return !c.getName().equals(this.getPluginBaseClass().getName()) &&
                     !Modifier.isAbstract(c.getModifiers()) &&
                     !c.getName().contains("UnitTest$");
-        };
     }
 
     /**
@@ -160,23 +158,21 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      * instantiate or otherwise obtain (possibly by having been provided an instance
      * through the descriptor's constructor) an instance of this plugin class.
      * The descriptor should maintain a list of these instances so they can later
-     * be retrieved by {@link #getAllInstances()}.
+     * be retrieved by {@link #getResolvedInstances()} ()}.
      * <p>
-     * In addition, implementations should recognize and reject any attempt to instantiate
-     * a second instance of a plugin that has the same simple class name as another plugin
-     * controlled by this descriptor (which can happen if they have different qualified names
-     * within the base package used by the descriptor) since the user has no way to disambiguate
+     * In addition, this method should recognize and reject any attempt to instantiate
+     * a second instance of any specific Annotation since the user has no way to disambiguate
      * these on the command line).
      *
      * @param pluggableClass a plugin class discovered by the command line parser that
-     *                       was not rejected by {@link #getClassFilter()}
+     *                       was not rejected by {@link #includePluginClass(Class)} ()}
      * @return the instantiated object that will be used by the command line parser
      * as an argument source
-     * @throws IllegalAccessException
-     * @throws InstantiationException
+     * @throws IllegalAccessException if thrown when calling the {@code pluginClass} constructor
+     * @throws InstantiationException if thrown when calling the {@code pluginClass} constructor
      */
     @Override
-    public Object getInstance(Class<?> pluggableClass) throws IllegalAccessException, InstantiationException {
+    public Annotation createInstanceForPlugin(Class<?> pluggableClass) throws IllegalAccessException, InstantiationException {
         Annotation annot = null;
         final String simpleName = pluggableClass.getSimpleName();
 
@@ -229,13 +225,13 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
     }
 
     /**
-     * Return the allowed values for annotationNames/disableAnnotations for use by the help system.
+     * Return the allowed values for annotationNames/disableAnnotations/annotationGroups for use by the help system.
      *
      * @param longArgName long name of the argument for which help is requested
      * @return
      */
     @Override
-    public Set<String> getAllowedValuesForDescriptorArgument(String longArgName) {
+    public Set<String> getAllowedValuesForDescriptorHelp(String longArgName) {
         if (longArgName.equals(StandardArgumentDefinitions.ANNOTATION_LONG_NAME)) {
             return allDiscoveredAnnotations.keySet();
         }
@@ -282,7 +278,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      * provides potentially confusing input.
      */
     @Override
-    public void validateArguments() throws CommandLineException {
+    public void validateAndResolvePlugins() throws CommandLineException {
         // throw if an annotation group is *enabled* more than once by the user
         final Set<String> duplicateUserEnabledAnnotationNames = Utils.getDuplicatedItems(userArgs.getUserEnabledAnnotationNames());
         if (!duplicateUserEnabledAnnotationNames.isEmpty()) {
@@ -400,7 +396,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      * @return A list of Annotation objects that were enabled by the tool by default either by toolDefaultGroups or toolDefaultAnnotations
      */
     @Override
-    public List<Object> getDefaultInstances() {
+    public List<Annotation> getDefaultInstances() {
         return new ArrayList<>(toolDefaultAnnotations.values());
     }
 
@@ -410,10 +406,14 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      * first add all the tool enabled annotations which were not individually blocked by the user and then
      * adds in annotations defined by the users specified groups, then individual annotations.
      *
+     * NOTE: calling this method before argument parsing (and thus before {@link #validateAndResolvePlugins}
+     * has been called) may return a different list than calling it after parsing, because annotations associated
+     * with pedigree files will not have had their arguments input.
+     *
      * @return An unordered Collection of annotations.
      */
     @Override
-    public List<Annotation> getAllInstances() {
+    public List<Annotation> getResolvedInstances() {
         final SortedSet<Annotation> annotations = new TreeSet<>(Comparator.comparing(t -> t.getClass().getSimpleName()));
 
         if (!userArgs.getDisableToolDefaultAnnotations()) {
@@ -436,7 +436,7 @@ public class GATKAnnotationPluginDescriptor  extends CommandLinePluginDescriptor
      * @return Class object for the plugin instance requested
      */
     @Override
-    public Class<?> getClassForInstance(final String pluginName) {
+    public Class<?> getClassForPluginHelp(final String pluginName) {
         return allDiscoveredAnnotations.containsKey(pluginName)?allDiscoveredAnnotations.get(pluginName).getClass():null;
     }
 }

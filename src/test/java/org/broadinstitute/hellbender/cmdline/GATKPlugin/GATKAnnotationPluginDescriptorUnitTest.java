@@ -69,7 +69,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
 
     private List<Annotation> instantiateAnnotations(final CommandLineParser clp) {
         GATKAnnotationPluginDescriptor annotationPlugin = clp.getPluginDescriptor(GATKAnnotationPluginDescriptor.class);
-        return Arrays.asList(annotationPlugin.getAllInstances().toArray(new Annotation[0]));
+        return Arrays.asList(annotationPlugin.getResolvedInstances().toArray(new Annotation[0]));
     }
 
     @DataProvider(name = "defaultFiltersForAllowedValues")
@@ -83,7 +83,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
     }
 
     @Test(dataProvider = "defaultFiltersForAllowedValues")
-    public void testGetAllowedValuesForDescriptorArgument(final List<Annotation> defaultFilters) {
+    public void testGetAllowedValuesForDescriptorHelp(final List<Annotation> defaultFilters) {
         final CommandLineParser clp = new CommandLineArgumentParser(
                 new Object(),
                 Collections.singletonList(new GATKAnnotationPluginDescriptor(defaultFilters, null)),
@@ -93,20 +93,20 @@ public class GATKAnnotationPluginDescriptorUnitTest {
         final GATKAnnotationPluginDescriptor pluginDescriptor = clp.getPluginDescriptor(GATKAnnotationPluginDescriptor.class);
 
         // the help for disable-annotation should point out to the default filters in the order provided
-        Assert.assertEquals(pluginDescriptor.getAllowedValuesForDescriptorArgument(StandardArgumentDefinitions.ANNOTATIONS_TO_EXCLUDE_LONG_NAME),
+        Assert.assertEquals(pluginDescriptor.getAllowedValuesForDescriptorHelp(StandardArgumentDefinitions.ANNOTATIONS_TO_EXCLUDE_LONG_NAME),
                 defaultFilters.stream().map(rf -> rf.getClass().getSimpleName()).collect(Collectors.toSet()));
 
         // test if the help for annotation is not empty after parsing: if custom validation throws, the help should print the annotations available
         // the complete set could not checked because that requires to discover all the implemented annotations
-        Assert.assertFalse(pluginDescriptor.getAllowedValuesForDescriptorArgument(StandardArgumentDefinitions.ANNOTATION_LONG_NAME).isEmpty());
+        Assert.assertFalse(pluginDescriptor.getAllowedValuesForDescriptorHelp(StandardArgumentDefinitions.ANNOTATION_LONG_NAME).isEmpty());
 
         // test if the help for annotation is not empty after parsing: if custom validation throws, the help should print the annotations available
         // the complete set could not checked because that requires knowing all the implemented annotation groups
-        Assert.assertFalse(pluginDescriptor.getAllowedValuesForDescriptorArgument(StandardArgumentDefinitions.ANNOTATION_GROUP_LONG_NAME).isEmpty());
+        Assert.assertFalse(pluginDescriptor.getAllowedValuesForDescriptorHelp(StandardArgumentDefinitions.ANNOTATION_GROUP_LONG_NAME).isEmpty());
     }
 
     @Test
-    public void testGetAllowedValuesForDescriptorArgumentGroups() {
+    public void testGetAllowedValuesForDescriptorHelpGroups() {
         final CommandLineParser clp = new CommandLineArgumentParser(
                 new Object(),
                 Collections.singletonList(new GATKAnnotationPluginDescriptor(null, Collections.singletonList(AS_StandardAnnotation.class))),
@@ -116,7 +116,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
         final GATKAnnotationPluginDescriptor pluginDescriptor = clp.getPluginDescriptor(GATKAnnotationPluginDescriptor.class);
 
         // the help for disable-annotation should point out to the default filters in the order provided
-        Assert.assertTrue(pluginDescriptor.getAllowedValuesForDescriptorArgument(StandardArgumentDefinitions.ANNOTATIONS_TO_EXCLUDE_LONG_NAME).contains(AS_RMSMappingQuality.class.getSimpleName()));
+        Assert.assertTrue(pluginDescriptor.getAllowedValuesForDescriptorHelp(StandardArgumentDefinitions.ANNOTATIONS_TO_EXCLUDE_LONG_NAME).contains(AS_RMSMappingQuality.class.getSimpleName()));
     }
 
     @Test
@@ -322,15 +322,15 @@ public class GATKAnnotationPluginDescriptorUnitTest {
 
         annotationDiscovery.forEach(a -> {
             try {
-                pluginDescriptor.getInstance(a);
+                pluginDescriptor.createInstanceForPlugin(a);
             } catch (IllegalAccessException | InstantiationException e) {
                 e.printStackTrace();
                 return;
             }
         });
-        pluginDescriptor.validateArguments();
+        pluginDescriptor.validateAndResolvePlugins();
 
-        VariantAnnotatorEngine vae = new VariantAnnotatorEngine(Arrays.asList(pluginDescriptor.getAllInstances().toArray(new Annotation[0])), null, Collections.emptyList(), false);
+        VariantAnnotatorEngine vae = new VariantAnnotatorEngine(Arrays.asList(pluginDescriptor.getResolvedInstances().toArray(new Annotation[0])), null, Collections.emptyList(), false);
         VariantContext vc = inbreedingCoefficientVC;
         vc = vae.annotateContext(vc, new FeatureContext(), null, null, a->true);
 
@@ -413,7 +413,7 @@ public class GATKAnnotationPluginDescriptorUnitTest {
     }
 
     @Test
-    public void testGetClassForInstance(){
+    public void testGetClassForPluginHelp(){
         CommandLineParser clp = new CommandLineArgumentParser(
                 new Object(),
                 Collections.singletonList(new GATKAnnotationPluginDescriptor(null, null)),
@@ -423,8 +423,8 @@ public class GATKAnnotationPluginDescriptorUnitTest {
 
         final GATKAnnotationPluginDescriptor pluginDescriptor = clp.getPluginDescriptor(GATKAnnotationPluginDescriptor.class);
 
-        Assert.assertTrue(pluginDescriptor.getClassForInstance(RMSMappingQuality.class.getSimpleName()).isInstance(new RMSMappingQuality()));
-        Assert.assertTrue(pluginDescriptor.getClassForInstance("Foo")==null);
+        Assert.assertTrue(pluginDescriptor.getClassForPluginHelp(RMSMappingQuality.class.getSimpleName()).isInstance(new RMSMappingQuality()));
+        Assert.assertTrue(pluginDescriptor.getClassForPluginHelp("Foo")==null);
     }
 
     @Test
@@ -524,9 +524,9 @@ public class GATKAnnotationPluginDescriptorUnitTest {
     @Test
     public void testOverridingInstancesWithGetInstance() throws InstantiationException, IllegalAccessException {
         GATKAnnotationPluginDescriptor pluginDescriptor = new GATKAnnotationPluginDescriptor(Collections.singletonList(new testParentAnnotation(true)), null);
-        pluginDescriptor.getInstance(testParentAnnotation.class);
+        pluginDescriptor.createInstanceForPlugin(testParentAnnotation.class);
 
-        Collection<Annotation> finalAnnotations = pluginDescriptor.getAllInstances();
+        Collection<Annotation> finalAnnotations = pluginDescriptor.getResolvedInstances();
         Assert.assertEquals(finalAnnotations.size(), 1);
 
         VariantAnnotatorEngine vae = new VariantAnnotatorEngine(Arrays.asList(finalAnnotations.toArray(new Annotation[0])), null, Collections.emptyList(), false);

@@ -484,7 +484,7 @@ public class GATKReadFilterPluginDescriptorTest extends GATKBaseTest {
                 "--readFilter", ReadLengthReadFilter.class.getSimpleName(),
                 "--maxReadLength", "13"}
         );
-        List<ReadFilter> allFilters = rfDesc.getAllInstances();
+        List<ReadFilter> allFilters = rfDesc.getResolvedInstances();
         ReadLengthReadFilter rf = (ReadLengthReadFilter) allFilters.get(0);
         Assert.assertEquals(rf.maxReadLength.intValue(), 13);
         Assert.assertEquals(rf.minReadLength, 1);
