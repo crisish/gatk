@@ -182,11 +182,11 @@ public final class FilterLongReadAlignmentsSAMSpark extends GATKSparkTool {
      *
      * @return              contigs with alignments filtered and custom formatted as {@link AlignmentInterval}
      */
-    static JavaRDD<AlignedContig> filterByScore(final JavaRDD<GATKRead> longReads,
-                                                final SAMFileHeader header,
-                                                final String nonCanonicalContigNamesFile,
-                                                final Double scoreDiffTolerance,
-                                                final Logger toolLogger) {
+    public static JavaRDD<AlignedContig> filterByScore(final JavaRDD<GATKRead> longReads,
+                                                       final SAMFileHeader header,
+                                                       final String nonCanonicalContigNamesFile,
+                                                       final Double scoreDiffTolerance,
+                                                       final Logger toolLogger) {
 
         longReads.cache();
         toolLogger.info( "Processing " + longReads.count() + " raw alignments from " +

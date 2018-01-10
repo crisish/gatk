@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 
-final class SimpleStrandSwitchVariantDetector implements VariantDetectorFromLocalAssemblyContigAlignments {
+public final class SimpleStrandSwitchVariantDetector implements VariantDetectorFromLocalAssemblyContigAlignments {
 
     @SuppressWarnings("unchecked")
     private static final List<String> EMPTY_INSERTION_MAPPINGS = Collections.EMPTY_LIST;
@@ -46,7 +46,7 @@ final class SimpleStrandSwitchVariantDetector implements VariantDetectorFromLoca
         // logic flow: split the input reads into two classes--those judged by IsLikelyInvertedDuplication are likely invdup and those aren't
         //             finally send the two split reads down different path, one for inv dup and one for BND records
         final Tuple2<JavaRDD<AlignedContig>, JavaRDD<AlignedContig>> invDupAndStrandSwitchBreakpoints =
-                RDDUtils.split(contigs.map( decoratedTig -> decoratedTig.contig),
+                RDDUtils.split(contigs.map( AssemblyContigWithFineTunedAlignments::getSourceContig ),
                         contig -> ChimericAlignment.isLikelyInvertedDuplication(contig.alignmentIntervals.get(0),
                                 contig.alignmentIntervals.get(1)), false);
 

@@ -6,13 +6,13 @@ import org.broadinstitute.hellbender.tools.spark.sv.discovery.SimpleSVType;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.SvType;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.StrandSwitch;
 
-class SvTypeInference {
+public class SvTypeInference {
 
     /**
      * @return inferred type of variant (as listed in {@link SvType}) based on input {@link NovelAdjacencyReferenceLocations}.
      */
     @VisibleForTesting
-    static SvType inferFromNovelAdjacency(final NovelAdjacencyReferenceLocations novelAdjacencyReferenceLocations) {
+    public static SvType inferFromNovelAdjacency(final NovelAdjacencyReferenceLocations novelAdjacencyReferenceLocations) {
 
         final int start = novelAdjacencyReferenceLocations.leftJustifiedLeftRefLoc.getEnd();
         final int end = novelAdjacencyReferenceLocations.leftJustifiedRightRefLoc.getStart();

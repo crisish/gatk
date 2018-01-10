@@ -43,7 +43,7 @@ import static org.broadinstitute.hellbender.tools.spark.sv.utils.GATKSVVCFConsta
  * paint the full picture we could decide to emit all BND records,
  * but that could be dealt with later.
  */
-final class CpxVariantDetector implements VariantDetectorFromLocalAssemblyContigAlignments {
+public final class CpxVariantDetector implements VariantDetectorFromLocalAssemblyContigAlignments {
     private static final boolean DEBUG_OUTPUT = false; // for debugging, once the prototyping code is merged, this and its usage will be deleted
 
 
@@ -65,7 +65,7 @@ final class CpxVariantDetector implements VariantDetectorFromLocalAssemblyContig
                 // for easier view when debugging, will be taken out in the final commit.
                 Files.write(Paths.get(Paths.get(vcfOutputFileName).getParent().toAbsolutePath().toString() + "/cpxEvents.txt"),
                         () -> annotatedContigs
-                                .sortBy(tig -> tig.tigWithInsMappings.contig.contigName, true, 1)
+                                .sortBy(tig -> tig.tigWithInsMappings.getSourceContig().contigName, true, 1)
                                 .map(annotatedContig -> (CharSequence) annotatedContig.toString())
                                 .collect().iterator());
             } catch (final IOException ioe) {
@@ -118,12 +118,12 @@ final class CpxVariantDetector implements VariantDetectorFromLocalAssemblyContig
 
         AnnotatedContig(final AssemblyContigWithFineTunedAlignments tigWithInsMappings, final SAMSequenceDictionary refSequenceDictionary) {
 
-            final AlignedContig sourceTig = tigWithInsMappings.contig;
+            final AlignedContig sourceTig = tigWithInsMappings.getSourceContig();
             final List<AlignmentInterval> deOverlappedAlignmentConfiguration =
                     deOverlapAlignments(sourceTig.alignmentIntervals, refSequenceDictionary);
             final AlignedContig contig = new AlignedContig(sourceTig.contigName, sourceTig.contigSequence,
                     deOverlappedAlignmentConfiguration, sourceTig.hasEquallyGoodAlnConfigurations);
-            this.tigWithInsMappings = new AssemblyContigWithFineTunedAlignments(contig, tigWithInsMappings.insertionMappings);
+            this.tigWithInsMappings = new AssemblyContigWithFineTunedAlignments(contig, tigWithInsMappings.getInsertionMappings());
 
             this.basicInfo = new BasicInfo(contig);
 
@@ -180,13 +180,13 @@ final class CpxVariantDetector implements VariantDetectorFromLocalAssemblyContig
          */
         private void annotate(final SAMSequenceDictionary refSequenceDictionary) {
             try {
-                jumps = extractJumpsOnReference(tigWithInsMappings.contig.alignmentIntervals);
+                jumps = extractJumpsOnReference(tigWithInsMappings.getSourceContig().alignmentIntervals);
 
                 eventPrimaryChromosomeSegmentingLocations =
                         extractSegmentingRefLocationsOnEventPrimaryChromosome(jumps, basicInfo, refSequenceDictionary);
 
                 referenceSegmentsAndEventDescription =
-                        segmentReferenceAndInterpret(basicInfo, tigWithInsMappings.contig.alignmentIntervals, jumps,
+                        segmentReferenceAndInterpret(basicInfo, tigWithInsMappings.getSourceContig().alignmentIntervals, jumps,
                                 eventPrimaryChromosomeSegmentingLocations);
 
                 altSeq = extractAltHaplotypeSeq(tigWithInsMappings, referenceSegmentsAndEventDescription.referenceSegments, basicInfo);
@@ -250,17 +250,17 @@ final class CpxVariantDetector implements VariantDetectorFromLocalAssemblyContig
 
             final Map<String, String> attributeMap = new HashMap<>();
             attributeMap.put(GATKSVVCFConstants.TOTAL_MAPPINGS,    "1");
-            attributeMap.put(GATKSVVCFConstants.HQ_MAPPINGS,       tigWithInsMappings.contig.alignmentIntervals.stream().mapToInt(ai -> ai.mapQual).anyMatch( mq -> mq < CHIMERIC_ALIGNMENTS_HIGHMQ_THRESHOLD ) ? "0" : "1");
-            attributeMap.put(GATKSVVCFConstants.MAPPING_QUALITIES, tigWithInsMappings.contig.alignmentIntervals.stream().map(ai -> String.valueOf(ai.mapQual)).collect(Collectors.joining(VCFConstants.INFO_FIELD_ARRAY_SEPARATOR)));
-            attributeMap.put(GATKSVVCFConstants.ALIGN_LENGTHS,     tigWithInsMappings.contig.alignmentIntervals.stream().map(ai -> String.valueOf(ai.getSizeOnRead())).collect(Collectors.joining(VCFConstants.INFO_FIELD_ARRAY_SEPARATOR)));
-            attributeMap.put(GATKSVVCFConstants.MAX_ALIGN_LENGTH,  String.valueOf(tigWithInsMappings.contig.alignmentIntervals.stream().mapToInt(AlignmentInterval::getSizeOnRead).max().orElse(0)));
-            attributeMap.put(GATKSVVCFConstants.CONTIG_NAMES,      tigWithInsMappings.contig.contigName);
+            attributeMap.put(GATKSVVCFConstants.HQ_MAPPINGS,       tigWithInsMappings.getSourceContig().alignmentIntervals.stream().mapToInt(ai -> ai.mapQual).anyMatch( mq -> mq < CHIMERIC_ALIGNMENTS_HIGHMQ_THRESHOLD ) ? "0" : "1");
+            attributeMap.put(GATKSVVCFConstants.MAPPING_QUALITIES, tigWithInsMappings.getSourceContig().alignmentIntervals.stream().map(ai -> String.valueOf(ai.mapQual)).collect(Collectors.joining(VCFConstants.INFO_FIELD_ARRAY_SEPARATOR)));
+            attributeMap.put(GATKSVVCFConstants.ALIGN_LENGTHS,     tigWithInsMappings.getSourceContig().alignmentIntervals.stream().map(ai -> String.valueOf(ai.getSizeOnRead())).collect(Collectors.joining(VCFConstants.INFO_FIELD_ARRAY_SEPARATOR)));
+            attributeMap.put(GATKSVVCFConstants.MAX_ALIGN_LENGTH,  String.valueOf(tigWithInsMappings.getSourceContig().alignmentIntervals.stream().mapToInt(AlignmentInterval::getSizeOnRead).max().orElse(0)));
+            attributeMap.put(GATKSVVCFConstants.CONTIG_NAMES,      tigWithInsMappings.getSourceContig().contigName);
 
             // TODO: 12/11/17 integrate these with those that survived the alignment filtering step?
             // known insertion mappings from filtered out alignments
-            if ( !tigWithInsMappings.insertionMappings.isEmpty() ) {
+            if ( !tigWithInsMappings.getInsertionMappings().isEmpty() ) {
                 attributeMap.put(INSERTED_SEQUENCE_MAPPINGS,
-                        String.join(VCFConstants.INFO_FIELD_ARRAY_SEPARATOR, tigWithInsMappings.insertionMappings));
+                        String.join(VCFConstants.INFO_FIELD_ARRAY_SEPARATOR, tigWithInsMappings.getInsertionMappings()));
             }
 
             return attributeMap;
@@ -807,15 +807,15 @@ final class CpxVariantDetector implements VariantDetectorFromLocalAssemblyContig
                                                  final List<SimpleInterval> segments,
                                                  final BasicInfo basicInfo) {
 
-        final AlignmentInterval head = tigWithInsMappings.contig.getHeadAlignment();
-        final AlignmentInterval tail = tigWithInsMappings.contig.getTailAlignment();
+        final AlignmentInterval head = tigWithInsMappings.getSourceContig().getHeadAlignment();
+        final AlignmentInterval tail = tigWithInsMappings.getSourceContig().getTailAlignment();
         if (head == null || tail == null)
-            throw new GATKException("Head or tail alignment is null from contig:\n" + tigWithInsMappings.contig.toString());
+            throw new GATKException("Head or tail alignment is null from contig:\n" + tigWithInsMappings.getSourceContig().toString());
 
         if (segments.isEmpty()) { // case where middle alignments all map to disjoint locations
             final int start = head.endInAssembledContig;
             final int end = tail.startInAssembledContig;
-            final byte[] altSeq = Arrays.copyOfRange(tigWithInsMappings.contig.contigSequence, start - 1, end);
+            final byte[] altSeq = Arrays.copyOfRange(tigWithInsMappings.getSourceContig().contigSequence, start - 1, end);
             if ( ! basicInfo.forwardStrandRep ) {
                 SequenceUtil.reverseComplement(altSeq);
             }
@@ -867,7 +867,7 @@ final class CpxVariantDetector implements VariantDetectorFromLocalAssemblyContig
         }
 
         // note from 1-based inclusive coordinate to C-style coordinate
-        final byte[] altSeq = Arrays.copyOfRange(tigWithInsMappings.contig.contigSequence, start - 1, end);
+        final byte[] altSeq = Arrays.copyOfRange(tigWithInsMappings.getSourceContig().contigSequence, start - 1, end);
         if ( ! basicInfo.forwardStrandRep ) {
             SequenceUtil.reverseComplement(altSeq);
         }

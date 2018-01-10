@@ -236,7 +236,7 @@ public final class SvDiscoverFromLocalAssemblyContigAlignmentsSpark extends GATK
                                  final JavaRDD<GATKRead> originalAlignments, final Broadcast<SAMFileHeader> headerBroadcast,
                                  final String outputDir, final Logger toolLogger) {
 
-        final Set<String> filteredReadNames = new HashSet<>( filteredContigs.map(decoratedTig -> decoratedTig.contig.contigName).distinct().collect() );
+        final Set<String> filteredReadNames = new HashSet<>( filteredContigs.map(decoratedTig -> decoratedTig.getSourceContig().contigName).distinct().collect() );
         toolLogger.info(filteredReadNames.size() + " contigs indicating " + rawTypeString);
         final JavaRDD<SAMRecord> splitLongReads = originalAlignments.filter(read -> filteredReadNames.contains(read.getName()))
                 .map(read -> read.convertToSAMRecord(headerBroadcast.getValue()));

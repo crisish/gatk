@@ -422,7 +422,7 @@ public final class AlignmentInterval {
     }
 
     @VisibleForTesting
-    static final String PACKED_STRING_REP_SEPARATOR = "_";
+    public static final String PACKED_STRING_REP_SEPARATOR = "_";
 
     /**
      * @return A packed String representation of this alignment interval; intended for debugging or annotation usage

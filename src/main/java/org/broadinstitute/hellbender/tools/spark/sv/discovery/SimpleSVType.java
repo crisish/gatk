@@ -30,7 +30,7 @@ public abstract class SimpleSVType extends SvType {
             return TYPES.INV.name();
         }
 
-        Inversion(final NovelAdjacencyReferenceLocations novelAdjacencyReferenceLocations) {
+        public Inversion(final NovelAdjacencyReferenceLocations novelAdjacencyReferenceLocations) {
             super(getIDString(novelAdjacencyReferenceLocations),
                     Allele.create(createBracketedSymbAlleleString(GATKSVVCFConstants.SYMB_ALT_ALLELE_INV)),
                     novelAdjacencyReferenceLocations.leftJustifiedRightRefLoc.getStart() - novelAdjacencyReferenceLocations.leftJustifiedLeftRefLoc.getEnd(),
@@ -56,7 +56,7 @@ public abstract class SimpleSVType extends SvType {
         }
 
         @SuppressWarnings("unchecked")
-        Deletion(final NovelAdjacencyReferenceLocations novelAdjacencyReferenceLocations) {
+        public Deletion(final NovelAdjacencyReferenceLocations novelAdjacencyReferenceLocations) {
             super(getIDString(novelAdjacencyReferenceLocations),
                     Allele.create(createBracketedSymbAlleleString(GATKSVVCFConstants.SYMB_ALT_ALLELE_DEL)),
                     -(novelAdjacencyReferenceLocations.leftJustifiedRightRefLoc.getStart() - novelAdjacencyReferenceLocations.leftJustifiedLeftRefLoc.getEnd()),
@@ -81,7 +81,7 @@ public abstract class SimpleSVType extends SvType {
         }
 
         @SuppressWarnings("unchecked")
-        Insertion(final NovelAdjacencyReferenceLocations novelAdjacencyReferenceLocations) {
+        public Insertion(final NovelAdjacencyReferenceLocations novelAdjacencyReferenceLocations) {
             super(getIDString(novelAdjacencyReferenceLocations),
                     Allele.create(createBracketedSymbAlleleString(GATKSVVCFConstants.SYMB_ALT_ALLELE_INS)),
                     novelAdjacencyReferenceLocations.complication.getInsertedSequenceForwardStrandRep().length(),
@@ -104,7 +104,7 @@ public abstract class SimpleSVType extends SvType {
             return TYPES.DUP.name();
         }
 
-        DuplicationTandem(final NovelAdjacencyReferenceLocations novelAdjacencyReferenceLocations) {
+        public DuplicationTandem(final NovelAdjacencyReferenceLocations novelAdjacencyReferenceLocations) {
             super(getIDString(novelAdjacencyReferenceLocations),
                     Allele.create(createBracketedSymbAlleleString(GATKSVVCFConstants.SYMB_ALT_ALLELE_DUP)),
                     novelAdjacencyReferenceLocations.complication.getInsertedSequenceForwardStrandRep().length()
@@ -129,7 +129,7 @@ public abstract class SimpleSVType extends SvType {
         }
 
         @SuppressWarnings("unchecked")
-        ImpreciseDeletion(final EvidenceTargetLink evidenceTargetLink, final ReadMetadata metadata) {
+        public ImpreciseDeletion(final EvidenceTargetLink evidenceTargetLink, final ReadMetadata metadata) {
 
             super(getIDString(evidenceTargetLink, metadata),
                     Allele.create(createBracketedSymbAlleleString(GATKSVVCFConstants.SYMB_ALT_ALLELE_DEL)),

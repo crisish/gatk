@@ -27,9 +27,9 @@ public final class AssemblyContigAlignmentSignatureClassifier {
         MisAssemblySuspect;     // suspected to be misassembly due to alignment signature that despite multiple alignments, no or only 1 good alignment
     }
 
-    static EnumMap<RawTypes, JavaRDD<AssemblyContigWithFineTunedAlignments>> classifyContigs(final JavaRDD<AlignedContig> contigs,
-                                                                                             final Broadcast<SAMSequenceDictionary> broadcastSequenceDictionary,
-                                                                                             final Logger toolLogger) {
+    public static EnumMap<RawTypes, JavaRDD<AssemblyContigWithFineTunedAlignments>> classifyContigs(final JavaRDD<AlignedContig> contigs,
+                                                                                                    final Broadcast<SAMSequenceDictionary> broadcastSequenceDictionary,
+                                                                                                    final Logger toolLogger) {
 
         // long reads with only 1 best configuration
         final JavaRDD<AlignedContig> contigsWithOnlyOneBestConfig =
@@ -104,7 +104,7 @@ public final class AssemblyContigAlignmentSignatureClassifier {
         // first remove overlap, if any
         final JavaRDD<AssemblyContigWithFineTunedAlignments> preprocessedContigs = contigsWithOnlyOneBestConfigAnd2AI.map(
                 decoratedContig -> {
-                    final AlignedContig contig = decoratedContig.contig;
+                    final AlignedContig contig = decoratedContig.getSourceContig();
                     final AlignmentInterval one = contig.alignmentIntervals.get(0),
                                             two = contig.alignmentIntervals.get(1);
                     final List<AlignmentInterval> deOverlappedAlignments =
@@ -144,7 +144,7 @@ public final class AssemblyContigAlignmentSignatureClassifier {
     }
 
     static boolean indicatesIntraChrStrandSwitchBkpts(final AssemblyContigWithFineTunedAlignments decoratedContig) {
-        return indicatesIntraChrStrandSwitchBkpts(decoratedContig.contig);
+        return indicatesIntraChrStrandSwitchBkpts(decoratedContig.getSourceContig());
     }
 
     static boolean indicatesIntraChrStrandSwitchBkpts(final AlignedContig contig) {
@@ -161,7 +161,7 @@ public final class AssemblyContigAlignmentSignatureClassifier {
     }
 
     static boolean indicatesIntraChrTandemDupBkpts(final AssemblyContigWithFineTunedAlignments decoratedContig) {
-        return indicatesIntraChrTandemDupBkpts(decoratedContig.contig);
+        return indicatesIntraChrTandemDupBkpts(decoratedContig.getSourceContig());
     }
 
     static boolean indicatesIntraChrTandemDupBkpts(final AlignedContig contig) {

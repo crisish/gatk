@@ -23,11 +23,11 @@ public final class AssemblyContigWithFineTunedAlignments {
     // useful for annotation but not essential for reliable event interpretation
     final List<String> insertionMappings;
 
-    AssemblyContigWithFineTunedAlignments(final AlignedContig contig) {
+    public AssemblyContigWithFineTunedAlignments(final AlignedContig contig) {
         this(contig, emptyInsertionMappings);
     }
 
-    AssemblyContigWithFineTunedAlignments(final AlignedContig contig,
+    public AssemblyContigWithFineTunedAlignments(final AlignedContig contig,
                                           final List<String> insertionMappings) {
         this.contig = contig;
         this.insertionMappings = Utils.nonNull(insertionMappings);
@@ -44,16 +44,24 @@ public final class AssemblyContigWithFineTunedAlignments {
         }
     }
 
+    public AlignedContig getSourceContig() {
+        return contig;
+    }
+
+    public List<String> getInsertionMappings() {
+        return insertionMappings;
+    }
+
     // after fine tuning, a contig may have no good alignment left, or only 1
-    final boolean isInformative() {
+    public final boolean isInformative() {
         return contig.isInformative();
     }
 
-    final boolean hasOnly2GoodAlignments () {
+    public final boolean hasOnly2GoodAlignments () {
         return contig.hasOnly2Alignments();
     }
 
-    final boolean hasIncompletePicture() {
+    public final boolean hasIncompletePicture() {
         if ( hasOnly2GoodAlignments() )
             return hasIncompletePictureFromTwoAlignments();
         else
@@ -77,7 +85,7 @@ public final class AssemblyContigWithFineTunedAlignments {
      * </ul>
      *
      */
-    boolean hasIncompletePictureFromTwoAlignments() {
+    public boolean hasIncompletePictureFromTwoAlignments() {
         return hasIncompletePictureDueToRefSpanContainment()
                 ||
                 (firstAndLastAlignmentMappedToSameChr() && hasIncompletePictureDueToOverlappingRefOrderSwitch());
@@ -197,7 +205,7 @@ public final class AssemblyContigWithFineTunedAlignments {
         return one.contains(two) || two.contains(one);
     }
 
-    boolean firstAndLastAlignmentMappedToSameChr() {
+    public boolean firstAndLastAlignmentMappedToSameChr() {
 
         final String firstMappedChr = this.contig.alignmentIntervals.get(0).referenceSpan.getContig();
         final String lastMappedChr  = this.contig.alignmentIntervals.get(this.contig.alignmentIntervals.size() - 1).referenceSpan.getContig();

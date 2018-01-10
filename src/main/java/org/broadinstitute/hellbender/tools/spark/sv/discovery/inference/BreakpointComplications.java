@@ -92,53 +92,53 @@ public final class BreakpointComplications {
         return toPrint;
     }
 
-    boolean hasDuplicationAnnotation() {
+    public boolean hasDuplicationAnnotation() {
         return hasDuplicationAnnotation;
     }
 
-    String getHomologyForwardStrandRep() {
+    public String getHomologyForwardStrandRep() {
         return homologyForwardStrandRep;
     }
 
-    String getInsertedSequenceForwardStrandRep() {
+    public String getInsertedSequenceForwardStrandRep() {
         return insertedSequenceForwardStrandRep;
     }
 
     // may return null
-    SimpleInterval getDupSeqRepeatUnitRefSpan() {
+    public SimpleInterval getDupSeqRepeatUnitRefSpan() {
         return dupSeqRepeatUnitRefSpan;
     }
 
-    int getDupSeqRepeatNumOnRef() {
+    public int getDupSeqRepeatNumOnRef() {
         return dupSeqRepeatNumOnRef;
     }
 
-    int getDupSeqRepeatNumOnCtg() {
+    public int getDupSeqRepeatNumOnCtg() {
         return dupSeqRepeatNumOnCtg;
     }
 
-    List<Strand> getDupSeqStrandOnRef() {
+    public List<Strand> getDupSeqStrandOnRef() {
         return dupSeqStrandOnRef;
     }
 
-    List<Strand> getDupSeqStrandOnCtg() {
+    public List<Strand> getDupSeqStrandOnCtg() {
         return dupSeqStrandOnCtg;
     }
 
     // may return null
-    List<String> getCigarStringsForDupSeqOnCtg() {
+    public List<String> getCigarStringsForDupSeqOnCtg() {
         return cigarStringsForDupSeqOnCtg;
     }
 
-    boolean isDupAnnotIsFromOptimization() {
+    public boolean isDupAnnotIsFromOptimization() {
         return dupAnnotIsFromOptimization;
     }
 
-    SimpleInterval getInvertedTransInsertionRefSpan() {
+    public SimpleInterval getInvertedTransInsertionRefSpan() {
         return invertedTransInsertionRefSpan;
     }
 
-    boolean hasDupSeqButNoStrandSwitch() {
+    public boolean hasDupSeqButNoStrandSwitch() {
         return hasDuplicationAnnotation && dupSeqStrandOnCtg.stream().noneMatch(s -> s.equals(Strand.NEGATIVE));
     }
 

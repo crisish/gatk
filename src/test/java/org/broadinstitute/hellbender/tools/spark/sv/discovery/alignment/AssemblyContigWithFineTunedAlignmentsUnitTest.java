@@ -1,4 +1,4 @@
-package org.broadinstitute.hellbender.tools.spark.sv.discovery.prototype;
+package org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment;
 
 import htsjdk.samtools.SAMRecord;
 import org.broadinstitute.hellbender.GATKBaseTest;

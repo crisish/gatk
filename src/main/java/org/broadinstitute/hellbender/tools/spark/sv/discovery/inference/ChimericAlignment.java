@@ -59,15 +59,15 @@ import java.util.List;
 @DefaultSerializer(ChimericAlignment.Serializer.class)
 public class ChimericAlignment {
 
-    final String sourceContigName;
+    public final String sourceContigName;
 
-    final AlignmentInterval regionWithLowerCoordOnContig;
-    final AlignmentInterval regionWithHigherCoordOnContig;
+    public final AlignmentInterval regionWithLowerCoordOnContig;
+    public final AlignmentInterval regionWithHigherCoordOnContig;
 
-    final StrandSwitch strandSwitch;
-    final boolean isForwardStrandRepresentation;
+    public final StrandSwitch strandSwitch;
+    public final boolean isForwardStrandRepresentation;
 
-    final List<String> insertionMappings;
+    public final List<String> insertionMappings;
 
     public List<AlignmentInterval> getAlignmentIntervals() {
         return Arrays.asList(regionWithLowerCoordOnContig, regionWithHigherCoordOnContig);

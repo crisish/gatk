@@ -16,7 +16,7 @@ import scala.Tuple2;
 import java.util.Collections;
 import java.util.List;
 
-final class SuspectedTransLocDetector implements VariantDetectorFromLocalAssemblyContigAlignments {
+public final class SuspectedTransLocDetector implements VariantDetectorFromLocalAssemblyContigAlignments {
 
     @SuppressWarnings("unchecked")
     private static final List<String> EMPTY_INSERTION_MAPPINGS = Collections.EMPTY_LIST;
@@ -34,11 +34,11 @@ final class SuspectedTransLocDetector implements VariantDetectorFromLocalAssembl
                 localAssemblyContigs
                         .filter(decoratedTig ->
                                 SimpleStrandSwitchVariantDetector.splitPairStrongEnoughEvidenceForCA(
-                                                decoratedTig.contig.alignmentIntervals.get(0), decoratedTig.contig.alignmentIntervals.get(1),
+                                                decoratedTig.getSourceContig().alignmentIntervals.get(0), decoratedTig.getSourceContig().alignmentIntervals.get(1),
                                         SimpleStrandSwitchVariantDetector.MORE_RELAXED_ALIGNMENT_MIN_MQ,
                                         0))
                         .mapToPair(decoratedTig ->
-                                convertAlignmentIntervalsToChimericAlignment(decoratedTig.contig, refSequenceDictionary.getValue())).cache();
+                                convertAlignmentIntervalsToChimericAlignment(decoratedTig.getSourceContig(), refSequenceDictionary.getValue())).cache();
 
         final JavaRDD<VariantContext> annotatedBNDs =
                 chimeraAndSequence

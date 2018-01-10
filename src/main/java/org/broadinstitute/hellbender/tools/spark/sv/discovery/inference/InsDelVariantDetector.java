@@ -21,7 +21,7 @@ import java.util.Iterator;
 import java.util.List;
 
 
-final class InsDelVariantDetector implements VariantDetectorFromLocalAssemblyContigAlignments {
+public final class InsDelVariantDetector implements VariantDetectorFromLocalAssemblyContigAlignments {
 
     @Override
     public void inferSvAndWriteVCF(final String vcfOutputFileName, final String sampleId,
@@ -33,7 +33,7 @@ final class InsDelVariantDetector implements VariantDetectorFromLocalAssemblyCon
         // TODO: 11/23/17 take insertion mappings from the input and add them to VC
         final JavaPairRDD<byte[], List<ChimericAlignment>> chimericAlignments =
                 contigs
-                        .map( decoratedTig -> decoratedTig.contig )
+                        .map( AssemblyContigWithFineTunedAlignments::getSourceContig )
                         .mapToPair(tig -> convertAlignmentIntervalToChimericAlignment(tig,
                                 StructuralVariationDiscoveryArgumentCollection.
                                         DiscoverVariantsFromContigsAlignmentsSparkArgumentCollection.CHIMERIC_ALIGNMENTS_HIGHMQ_THRESHOLD,
