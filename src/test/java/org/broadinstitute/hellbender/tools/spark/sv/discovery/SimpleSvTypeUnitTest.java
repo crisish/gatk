@@ -2,8 +2,8 @@ package org.broadinstitute.hellbender.tools.spark.sv.discovery;
 
 import htsjdk.variant.variantcontext.Allele;
 import org.broadinstitute.hellbender.GATKBaseTest;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.inference.InsDelVariantDetector;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.inference.NovelAdjacencyReferenceLocations;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.inference.SvTypeInference;
 import org.broadinstitute.hellbender.tools.spark.sv.utils.GATKSVVCFConstants;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
@@ -14,7 +14,7 @@ import java.util.List;
 
 import static org.broadinstitute.hellbender.tools.spark.sv.discovery.SimpleSVType.createBracketedSymbAlleleString;
 
-public class SVTypeUnitTest extends GATKBaseTest {
+public class SimpleSvTypeUnitTest extends GATKBaseTest {
 
     /**
      * Hack to force trigger test data generation.
@@ -34,7 +34,7 @@ public class SVTypeUnitTest extends GATKBaseTest {
                                final int expectedSvLen,
                                final String expectedFirstFieldInIdString) throws IOException {
 
-        final SvType SvType = SvTypeInference.inferFromNovelAdjacency(novelAdjacencyReferenceLocations);
+        final SvType SvType = InsDelVariantDetector.inferFromNovelAdjacency(novelAdjacencyReferenceLocations);
         final List<Allele> producedAlleles = AnnotatedVariantProducer.produceAlleles(novelAdjacencyReferenceLocations.leftJustifiedLeftRefLoc, SVDiscoveryTestDataProvider.reference, SvType);
 
         Assert.assertEquals(producedAlleles.size(), 2);

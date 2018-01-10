@@ -4,8 +4,6 @@ import com.google.common.collect.ImmutableSet;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.SVDiscoveryTestDataProvider;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.SimpleSVType;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.SvType;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.inference.NovelAdjacencyReferenceLocations;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.inference.SvTypeInference;
 import org.broadinstitute.hellbender.tools.spark.sv.utils.GATKSVVCFConstants;
 import org.broadinstitute.hellbender.GATKBaseTest;
 import org.testng.Assert;
@@ -16,7 +14,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Set;
 
-public class SvTypeInferenceUnitTest extends GATKBaseTest {
+public class SvSimpleTypeInferenceUnitTest extends GATKBaseTest {
 
     /**
      * Hack to force trigger test data generation.
@@ -33,7 +31,7 @@ public class SvTypeInferenceUnitTest extends GATKBaseTest {
                                                    final String expectedTypeString,
                                                    final Set<String> expectedFlags) {
 
-        final SvType variant = SvTypeInference.inferFromNovelAdjacency(breakpoints);
+        final SvType variant = InsDelVariantDetector.inferFromNovelAdjacency(breakpoints);
         Assert.assertEquals(variant.toString(), expectedTypeString);
 
         final Set<String> flags = variant.getTypeSpecificAttributes().keySet();

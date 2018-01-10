@@ -1,5 +1,6 @@
 package org.broadinstitute.hellbender.tools.spark.sv.discovery.inference;
 
+import com.google.common.annotations.VisibleForTesting;
 import htsjdk.samtools.SAMSequenceDictionary;
 import htsjdk.variant.variantcontext.VariantContext;
 import org.apache.logging.log4j.Logger;
@@ -9,13 +10,11 @@ import org.apache.spark.broadcast.Broadcast;
 import org.broadinstitute.hellbender.engine.datasources.ReferenceMultiSource;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.tools.spark.sv.StructuralVariationDiscoveryArgumentCollection;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.AnnotatedVariantProducer;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.SvDiscoveryDataBundle;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.SvDiscoveryUtils;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.SvType;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.*;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AlignedContig;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AlignmentInterval;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AssemblyContigWithFineTunedAlignments;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.StrandSwitch;
 import org.broadinstitute.hellbender.tools.spark.sv.utils.GATKSVVCFHeaderLines;
 import org.broadinstitute.hellbender.tools.spark.sv.utils.SVInterval;
 import org.broadinstitute.hellbender.tools.spark.sv.utils.SVIntervalTree;
@@ -164,8 +163,70 @@ public final class InsDelVariantDetector implements VariantDetectorFromLocalAsse
             final NovelAdjacencyReferenceLocations novelAdjacency,
             final Iterable<ChimericAlignment> chimericAlignments) {
         return new Tuple2<>(novelAdjacency,
-                new Tuple2<>(SvTypeInference.inferFromNovelAdjacency(novelAdjacency), chimericAlignments));
+                new Tuple2<>(inferFromNovelAdjacency(novelAdjacency), chimericAlignments));
     }
+
+    /**
+     * @return inferred type of variant (as listed in {@link SvType}) based on input {@link NovelAdjacencyReferenceLocations}.
+     */
+    @VisibleForTesting
+    public static SimpleSVType inferFromNovelAdjacency(final NovelAdjacencyReferenceLocations novelAdjacencyReferenceLocations) {
+
+        final int start = novelAdjacencyReferenceLocations.leftJustifiedLeftRefLoc.getEnd();
+        final int end = novelAdjacencyReferenceLocations.leftJustifiedRightRefLoc.getStart();
+        final StrandSwitch strandSwitch = novelAdjacencyReferenceLocations.strandSwitch;
+
+        final SimpleSVType type;
+        if (strandSwitch == StrandSwitch.NO_SWITCH) { // no strand switch happening, so no inversion
+            if (start==end) { // something is inserted
+                final boolean hasNoDupSeq = !novelAdjacencyReferenceLocations.complication.hasDuplicationAnnotation();
+                final boolean hasNoInsertedSeq = novelAdjacencyReferenceLocations.complication.getInsertedSequenceForwardStrandRep().isEmpty();
+                if (hasNoDupSeq) {
+                    if (hasNoInsertedSeq) {
+                        throw new GATKException("Something went wrong in type inference, there's suspected insertion happening but no inserted sequence could be inferred "
+                                + novelAdjacencyReferenceLocations.toString());
+                    } else {
+                        type = new SimpleSVType.Insertion(novelAdjacencyReferenceLocations); // simple insertion (no duplication)
+                    }
+                } else {
+                    if (hasNoInsertedSeq) {
+                        type = new SimpleSVType.DuplicationTandem(novelAdjacencyReferenceLocations); // clean expansion of repeat 1 -> 2, or complex expansion
+                    } else {
+                        type = new SimpleSVType.DuplicationTandem(novelAdjacencyReferenceLocations); // expansion of 1 repeat on ref to 2 repeats on alt with inserted sequence in between the 2 repeats
+                    }
+                }
+            } else {
+                final boolean hasNoDupSeq = !novelAdjacencyReferenceLocations.complication.hasDuplicationAnnotation();
+                final boolean hasNoInsertedSeq = novelAdjacencyReferenceLocations.complication.getInsertedSequenceForwardStrandRep().isEmpty();
+                if (hasNoDupSeq) {
+                    if (hasNoInsertedSeq) {
+                        type = new SimpleSVType.Deletion(novelAdjacencyReferenceLocations); // clean deletion
+                    } else {
+                        type = new SimpleSVType.Deletion(novelAdjacencyReferenceLocations); // scarred deletion
+                    }
+                } else {
+                    if (hasNoInsertedSeq) {
+                        type = new SimpleSVType.Deletion(novelAdjacencyReferenceLocations); // clean contraction of repeat 2 -> 1, or complex contraction
+                    } else {
+                        throw new GATKException("Something went wrong in type inference, there's suspected deletion happening but both inserted sequence and duplication exits (not supported yet): "
+                                + novelAdjacencyReferenceLocations.toString());
+                    }
+                }
+            }
+        } else {
+            type = new SimpleSVType.Inversion(novelAdjacencyReferenceLocations);
+        }
+
+        // developer check to make sure new types are treated correctly
+        try {
+            SimpleSVType.TYPES.valueOf(type.toString());
+        } catch (final IllegalArgumentException ex) {
+            throw new GATKException.ShouldNeverReachHereException("Inferred type is not known yet: " + type.toString(), ex);
+        }
+
+        return type;
+    }
+
 
     /**
      * Produces annotated variant as described in {@link GATKSVVCFHeaderLines}, given input arguments.
