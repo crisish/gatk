@@ -2,8 +2,10 @@ package org.broadinstitute.hellbender.tools.spark.sv.discovery.prototype;
 
 import htsjdk.samtools.TextCigarCodec;
 import org.broadinstitute.hellbender.engine.spark.SparkContextFactory;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.AlignedContig;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.AlignmentInterval;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AlignedContig;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AlignmentInterval;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AlnModType;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.FilterLongReadAlignmentsSAMSpark;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.GATKBaseTest;
 import org.testng.annotations.DataProvider;
@@ -12,7 +14,7 @@ import org.testng.annotations.Test;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.broadinstitute.hellbender.tools.spark.sv.discovery.prototype.FilterLongReadAlignmentsSAMSpark.getCanonicalChromosomes;
+import static org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.FilterLongReadAlignmentsSAMSpark.getCanonicalChromosomes;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
