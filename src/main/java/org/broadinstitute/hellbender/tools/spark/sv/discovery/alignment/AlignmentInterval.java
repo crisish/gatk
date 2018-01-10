@@ -78,12 +78,12 @@ public final class AlignmentInterval {
     public final int alnScore;
 
     /**
-     * when {@code alnModType} is not {@link AlnModType#NONE}, fields "mapQual", "mismatches", "alnScore" should be
+     * when {@code alnModType} is not {@link ContigAlignmentsModifier.AlnModType#NONE}, fields "mapQual", "mismatches", "alnScore" should be
      * viewed with care as they were either simply copied from the original alignment (e.g. "mapQual") or
      * set to some special value (e.g. "mismatches"), which is wrong strictly speaking.
      * (We didn't recompute them because that would require expensive SW re-alignment.)
      */
-    public final AlnModType alnModType;
+    public final ContigAlignmentsModifier.AlnModType alnModType;
 
 
     /**
@@ -159,7 +159,7 @@ public final class AlignmentInterval {
         this.alnScore = alignmentScore;
         this.forwardStrand = forwardStrand;
         this.cigarAlong5to3DirectionOfContig = cigar;
-        this.alnModType = AlnModType.NONE;
+        this.alnModType = ContigAlignmentsModifier.AlnModType.NONE;
     }
 
     /**
@@ -246,7 +246,7 @@ public final class AlignmentInterval {
         this.mapQual = samRecord.getMappingQuality();
         this.mismatches = ReadUtils.getOptionalIntAttribute(samRecord, SAMTag.NM.name()).orElse(NO_NM);
         this.alnScore = ReadUtils.getOptionalIntAttribute(samRecord, SAMTag.AS.name()).orElse(NO_AS);
-        this.alnModType = AlnModType.NONE;
+        this.alnModType = ContigAlignmentsModifier.AlnModType.NONE;
     }
 
     /**
@@ -269,7 +269,7 @@ public final class AlignmentInterval {
         this.mapQual = read.getMappingQuality();
         this.mismatches = ReadUtils.getOptionalIntAttribute(read, SAMTag.NM.name()).orElse(NO_NM);
         this.alnScore = ReadUtils.getOptionalIntAttribute(read, SAMTag.AS.name()).orElse(NO_AS);
-        this.alnModType = AlnModType.NONE;
+        this.alnModType = ContigAlignmentsModifier.AlnModType.NONE;
     }
 
     @VisibleForTesting
@@ -300,12 +300,12 @@ public final class AlignmentInterval {
         }
 
         this.alnScore = alignment.getAlignerScore();
-        this.alnModType = AlnModType.NONE;
+        this.alnModType = ContigAlignmentsModifier.AlnModType.NONE;
     }
 
     public AlignmentInterval(final SimpleInterval referenceSpan, final int startInAssembledContig, final int endInAssembledContig,
                              final Cigar cigarAlong5to3DirectionOfContig, final boolean forwardStrand,
-                             final int mapQual, final int mismatches, final int alignerScore, final AlnModType modType) {
+                             final int mapQual, final int mismatches, final int alignerScore, final ContigAlignmentsModifier.AlnModType modType) {
         this.referenceSpan = referenceSpan;
         this.startInAssembledContig = startInAssembledContig;
         this.endInAssembledContig = endInAssembledContig;
@@ -380,7 +380,7 @@ public final class AlignmentInterval {
         mapQual = input.readInt();
         mismatches = input.readInt();
         alnScore = input.readInt();
-        alnModType = AlnModType.values()[input.readInt()];
+        alnModType = ContigAlignmentsModifier.AlnModType.values()[input.readInt()];
     }
 
     void serialize(final Kryo kryo, final Output output) {

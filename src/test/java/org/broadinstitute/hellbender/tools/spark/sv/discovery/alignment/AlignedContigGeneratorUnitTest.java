@@ -156,7 +156,7 @@ public class AlignedContigGeneratorUnitTest extends GATKBaseTest {
 
         final List<AlignmentInterval> alignmentIntervalsForCleanContig = it.next().alignmentIntervals;
         Assert.assertEquals(alignmentIntervalsForCleanContig.size(), 1);
-        Assert.assertEquals(alignmentIntervalsForCleanContig.get(0), new AlignmentInterval(new SimpleInterval(dummyRefName, 1000001, 1001000), 1, 1000, TextCigarCodec.decode("1000M"), true, 60, 0, 100, AlnModType.NONE));
+        Assert.assertEquals(alignmentIntervalsForCleanContig.get(0), new AlignmentInterval(new SimpleInterval(dummyRefName, 1000001, 1001000), 1, 1000, TextCigarCodec.decode("1000M"), true, 60, 0, 100, ContigAlignmentsModifier.AlnModType.NONE));
 
         final List<AlignmentInterval> alignmentIntervalsForContigWithGappedAlignment = it.next().alignmentIntervals;
         Assert.assertEquals(alignmentIntervalsForContigWithGappedAlignment.size(), 3);

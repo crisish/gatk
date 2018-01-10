@@ -145,7 +145,7 @@ final class CpxVariantDetector implements VariantDetectorFromLocalAssemblyContig
                 //       IFF that alignment contains the child alignment in terms of their spans on the read/contig
                 //       if you are concerned about the first child alignment from the same gapped alignment being skipped,
                 //       don't worry, that is impossible because child alignments of the same gapped alignment cannot overlap on the read.
-                if (two.alnModType.equals(AlnModType.FROM_SPLIT_GAPPED_ALIGNMENT)) {
+                if (two.alnModType.equals(ContigAlignmentsModifier.AlnModType.FROM_SPLIT_GAPPED_ALIGNMENT)) {
                     final int overlapOnRead = AlignmentInterval.overlapOnContig(one, two);
                     if (overlapOnRead >= two.getSizeOnRead())
                         continue;

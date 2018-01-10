@@ -25,10 +25,7 @@ import org.broadinstitute.hellbender.engine.filters.ReadFilter;
 import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
 import org.broadinstitute.hellbender.engine.spark.GATKSparkTool;
 import org.broadinstitute.hellbender.exceptions.GATKException;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AlignedContig;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AlignedContigGenerator;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AlignmentInterval;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.GappedAlignmentSplitter;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.*;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.inference.ChimericAlignment;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.inference.NovelAdjacencyReferenceLocations;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.inference.SvTypeInference;
@@ -209,7 +206,7 @@ public final class DiscoverVariantsFromContigAlignmentsSAMSpark extends GATKSpar
                 if (splitGapped) {
                     final int unClippedContigLength = primaryAlignment.getReadLength();
                     parsedAlignments = unSplitAIList.map(ar ->
-                            GappedAlignmentSplitter.split(ar, gapSplitSensitivity, unClippedContigLength))
+                            ContigAlignmentsModifier.splitGappedAlignment(ar, gapSplitSensitivity, unClippedContigLength))
                             .flatMap(Utils::stream).collect(Collectors.toList());
                 } else {
                     parsedAlignments = unSplitAIList.collect(Collectors.toList());

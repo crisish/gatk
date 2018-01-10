@@ -216,7 +216,7 @@ public final class FilterLongReadAlignmentsSAMSpark extends GATKSparkTool {
 
     /**
      * Manages configuration score-based filtering,
-     * then split the gapped alignments by delegating to {@link GappedAlignmentSplitter}.
+     * then split the gapped alignments by delegating to {@link ContigAlignmentsModifier#splitGappedAlignment(AlignmentInterval, int, int)}.
      * Note that this step is essentially a flatMap operation, meaning that one contig may return 1 or multiple contigs:
      *  *) when 1 contig is yielded, it means the contig has only 1 configuration that scored the best
      *  *) when multiple contigs are yielded, it means the contig has several top-scored configurations
@@ -370,7 +370,7 @@ public final class FilterLongReadAlignmentsSAMSpark extends GATKSparkTool {
 
     private static List<AlignmentInterval> splitGaps(final List<AlignmentInterval> configuration) {
         return configuration.stream()
-                .map(ai -> GappedAlignmentSplitter.split(ai, GAPPED_ALIGNMENT_BREAK_DEFAULT_SENSITIVITY,
+                .map(ai -> ContigAlignmentsModifier.splitGappedAlignment(ai, GAPPED_ALIGNMENT_BREAK_DEFAULT_SENSITIVITY,
                         SvCigarUtils.getUnclippedReadLength(ai.cigarAlong5to3DirectionOfContig)))
                 .flatMap(Utils::stream).collect(Collectors.toList());
     }

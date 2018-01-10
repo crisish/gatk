@@ -24,54 +24,54 @@ public class AlignmentIntervalUnitTest extends GATKBaseTest {
     Object[][] testDataForAIOverlaps() {
         final List<Object[]> data = new ArrayList<>(20);
 
-        AlignmentInterval ar1 = new AlignmentInterval(new SimpleInterval("1",1,5), 1,5, TextCigarCodec.decode("5M5H"),true, 60, 0, 100, AlnModType.NONE);
-        AlignmentInterval ar2 = new AlignmentInterval(new SimpleInterval("1",10,16), 5,10, TextCigarCodec.decode("4S6M"),true, 60, 0, 100, AlnModType.NONE);
+        AlignmentInterval ar1 = new AlignmentInterval(new SimpleInterval("1",1,5), 1,5, TextCigarCodec.decode("5M5H"),true, 60, 0, 100, ContigAlignmentsModifier.AlnModType.NONE);
+        AlignmentInterval ar2 = new AlignmentInterval(new SimpleInterval("1",10,16), 5,10, TextCigarCodec.decode("4S6M"),true, 60, 0, 100, ContigAlignmentsModifier.AlnModType.NONE);
 
         data.add(new Object[]{ar1, ar2, 1, 0});
 
-        ar1 = new AlignmentInterval(new SimpleInterval("1",1,5), 1,5, TextCigarCodec.decode("5M5H"),true, 60, 0, 100, AlnModType.NONE);
-        ar2 = new AlignmentInterval(new SimpleInterval("1",11,16), 6,10, TextCigarCodec.decode("5S5M"),true, 60, 0, 100, AlnModType.NONE);
+        ar1 = new AlignmentInterval(new SimpleInterval("1",1,5), 1,5, TextCigarCodec.decode("5M5H"),true, 60, 0, 100, ContigAlignmentsModifier.AlnModType.NONE);
+        ar2 = new AlignmentInterval(new SimpleInterval("1",11,16), 6,10, TextCigarCodec.decode("5S5M"),true, 60, 0, 100, ContigAlignmentsModifier.AlnModType.NONE);
         data.add(new Object[]{ar1, ar2, 0, 0});
 
         // overlaps on ref only
-        ar1 = new AlignmentInterval(new SimpleInterval("chr1",4938770,4939497), 1,728, TextCigarCodec.decode("728M61S"),true, 60, 0, 728, AlnModType.NONE);
-        ar2 = new AlignmentInterval(new SimpleInterval("chr1",4939439,4939498), 730,789, TextCigarCodec.decode("729H60M"),true, 60, 2, 50, AlnModType.NONE);
+        ar1 = new AlignmentInterval(new SimpleInterval("chr1",4938770,4939497), 1,728, TextCigarCodec.decode("728M61S"),true, 60, 0, 728, ContigAlignmentsModifier.AlnModType.NONE);
+        ar2 = new AlignmentInterval(new SimpleInterval("chr1",4939439,4939498), 730,789, TextCigarCodec.decode("729H60M"),true, 60, 2, 50, ContigAlignmentsModifier.AlnModType.NONE);
         data.add(new Object[]{ar1, ar2, 0, 59});
 
-        ar1 = new AlignmentInterval(new SimpleInterval("chr1",9170350,9171390), 1,1041, TextCigarCodec.decode("1041M1298H"),false, 60, 4, 1021, AlnModType.NONE);
-        ar2 = new AlignmentInterval(new SimpleInterval("chr1",9169370,9170505), 1204,2239, TextCigarCodec.decode("1203S1136M"),false, 60, 22, 1026, AlnModType.NONE);
+        ar1 = new AlignmentInterval(new SimpleInterval("chr1",9170350,9171390), 1,1041, TextCigarCodec.decode("1041M1298H"),false, 60, 4, 1021, ContigAlignmentsModifier.AlnModType.NONE);
+        ar2 = new AlignmentInterval(new SimpleInterval("chr1",9169370,9170505), 1204,2239, TextCigarCodec.decode("1203S1136M"),false, 60, 22, 1026, ContigAlignmentsModifier.AlnModType.NONE);
         data.add(new Object[]{ar1, ar2, 0, 505-350+1});
 
         // overlaps on read only
-        ar1 = new AlignmentInterval(new SimpleInterval("chr1",933803,934119), 1,317, TextCigarCodec.decode("317M302H"),true, 60, 7, 282, AlnModType.NONE);
-        ar2 = new AlignmentInterval(new SimpleInterval("chr1",934806,935261), 164,619, TextCigarCodec.decode("163S456M"),true, 60, 8, 416, AlnModType.NONE);
+        ar1 = new AlignmentInterval(new SimpleInterval("chr1",933803,934119), 1,317, TextCigarCodec.decode("317M302H"),true, 60, 7, 282, ContigAlignmentsModifier.AlnModType.NONE);
+        ar2 = new AlignmentInterval(new SimpleInterval("chr1",934806,935261), 164,619, TextCigarCodec.decode("163S456M"),true, 60, 8, 416, ContigAlignmentsModifier.AlnModType.NONE);
         data.add(new Object[]{ar1, ar2, 317-164+1, 0});
 
-        ar1 = new AlignmentInterval(new SimpleInterval("chr1",964783,965113), 1,331, TextCigarCodec.decode("331M1028H"),false, 60, 2, 321, AlnModType.NONE);
-        ar2 = new AlignmentInterval(new SimpleInterval("chr1",963604,964692), 270,1359, TextCigarCodec.decode("269S69M1I1020M"),false, 60, 9, 1032, AlnModType.NONE);
+        ar1 = new AlignmentInterval(new SimpleInterval("chr1",964783,965113), 1,331, TextCigarCodec.decode("331M1028H"),false, 60, 2, 321, ContigAlignmentsModifier.AlnModType.NONE);
+        ar2 = new AlignmentInterval(new SimpleInterval("chr1",963604,964692), 270,1359, TextCigarCodec.decode("269S69M1I1020M"),false, 60, 9, 1032, ContigAlignmentsModifier.AlnModType.NONE);
         data.add(new Object[]{ar1, ar2, 331-270+1, 0});
 
         // overlaps on read & ref
-        ar1 = new AlignmentInterval(new SimpleInterval("chr1",66659809,66660176), 1,354, TextCigarCodec.decode("124M10D106M3D16M2I75M3D31M241H"),true, 60, 35, 185, AlnModType.NONE);
-        ar2 = new AlignmentInterval(new SimpleInterval("chr1",66659958,66660262), 301,595, TextCigarCodec.decode("300S179M10D116M"),true, 60, 24, 199, AlnModType.NONE);
+        ar1 = new AlignmentInterval(new SimpleInterval("chr1",66659809,66660176), 1,354, TextCigarCodec.decode("124M10D106M3D16M2I75M3D31M241H"),true, 60, 35, 185, ContigAlignmentsModifier.AlnModType.NONE);
+        ar2 = new AlignmentInterval(new SimpleInterval("chr1",66659958,66660262), 301,595, TextCigarCodec.decode("300S179M10D116M"),true, 60, 24, 199, ContigAlignmentsModifier.AlnModType.NONE);
         data.add(new Object[]{ar1, ar2, 54, 66660176-66659958+1});
 
-        ar1 = new AlignmentInterval(new SimpleInterval("chr1",156328046,156328757), 1,712, TextCigarCodec.decode("712M444S"),false, 60, 2, 702, AlnModType.NONE);
-        ar2 = new AlignmentInterval(new SimpleInterval("chr1",156327744,156328331), 588,1156, TextCigarCodec.decode("587H127M15I131M34D296M"),false, 60, 68, 378, AlnModType.NONE);
+        ar1 = new AlignmentInterval(new SimpleInterval("chr1",156328046,156328757), 1,712, TextCigarCodec.decode("712M444S"),false, 60, 2, 702, ContigAlignmentsModifier.AlnModType.NONE);
+        ar2 = new AlignmentInterval(new SimpleInterval("chr1",156327744,156328331), 588,1156, TextCigarCodec.decode("587H127M15I131M34D296M"),false, 60, 68, 378, ContigAlignmentsModifier.AlnModType.NONE);
         data.add(new Object[]{ar1, ar2, 712-588+1, 331-46+1});
 
         // overlap with strand switch
-        ar1 = new AlignmentInterval(new SimpleInterval("chr6",148696358,148697176), 1,815, TextCigarCodec.decode("725M4D90M472S"),true, 60, 10, 765, AlnModType.NONE);
-        ar2 = new AlignmentInterval(new SimpleInterval("chr6",4090017,4090739), 567,1287, TextCigarCodec.decode("566H80M2D641M"),false, 60, 7, 678, AlnModType.NONE);
+        ar1 = new AlignmentInterval(new SimpleInterval("chr6",148696358,148697176), 1,815, TextCigarCodec.decode("725M4D90M472S"),true, 60, 10, 765, ContigAlignmentsModifier.AlnModType.NONE);
+        ar2 = new AlignmentInterval(new SimpleInterval("chr6",4090017,4090739), 567,1287, TextCigarCodec.decode("566H80M2D641M"),false, 60, 7, 678, ContigAlignmentsModifier.AlnModType.NONE);
         data.add(new Object[]{ar1, ar2, 815-567+1, 0});
 
-        ar1 = new AlignmentInterval(new SimpleInterval("chr5",180678871,180679093), 1,223, TextCigarCodec.decode("223M44S"),false, 60, 0, 223, AlnModType.NONE);
-        ar2 = new AlignmentInterval(new SimpleInterval("chr5",180678907,180678954), 220,267, TextCigarCodec.decode("219H48M"),true, 60, 0, 48, AlnModType.NONE);
+        ar1 = new AlignmentInterval(new SimpleInterval("chr5",180678871,180679093), 1,223, TextCigarCodec.decode("223M44S"),false, 60, 0, 223, ContigAlignmentsModifier.AlnModType.NONE);
+        ar2 = new AlignmentInterval(new SimpleInterval("chr5",180678907,180678954), 220,267, TextCigarCodec.decode("219H48M"),true, 60, 0, 48, ContigAlignmentsModifier.AlnModType.NONE);
         data.add(new Object[]{ar1, ar2, 4, 48});
 
         // different chr
-        ar1 = new AlignmentInterval(new SimpleInterval("chr1",9170350,9171390), 1,1041, TextCigarCodec.decode("1041M1298H"),false, 60, 4, 1021, AlnModType.NONE);
-        ar2 = new AlignmentInterval(new SimpleInterval("chr2",9169370,9170505), 1204,2239, TextCigarCodec.decode("1203S1136M"),false, 60, 22, 1026, AlnModType.NONE);
+        ar1 = new AlignmentInterval(new SimpleInterval("chr1",9170350,9171390), 1,1041, TextCigarCodec.decode("1041M1298H"),false, 60, 4, 1021, ContigAlignmentsModifier.AlnModType.NONE);
+        ar2 = new AlignmentInterval(new SimpleInterval("chr2",9169370,9170505), 1204,2239, TextCigarCodec.decode("1203S1136M"),false, 60, 22, 1026, ContigAlignmentsModifier.AlnModType.NONE);
         data.add(new Object[]{ar1, ar2, 0, 0});
 
         return data.toArray(new Object[data.size()][]);
@@ -107,7 +107,7 @@ public class AlignmentIntervalUnitTest extends GATKBaseTest {
      * [5] expected end in assembled contig, 1-based, inclusive
      * [6] expected contig length,
      * [7] expected {@link AlignmentInterval} object (generated manually with all fields explicitly spell out and given to
-     *                                      {@link AlignmentInterval#AlignmentInterval(SimpleInterval, int, int, Cigar, boolean, int, int, int, AlnModType)}
+     *                                      {@link AlignmentInterval#AlignmentInterval(SimpleInterval, int, int, Cigar, boolean, int, int, int, ContigAlignmentsModifier.AlnModType)}
      *                                      intended to be used for testing concordance between the two constructors)
      */
     @DataProvider(name = "AlignmentIntervalCtorTestForSimpleInversion")
@@ -137,7 +137,7 @@ public class AlignmentIntervalUnitTest extends GATKBaseTest {
             final SimpleInterval referenceInterval = new SimpleInterval(refNames.get(0), alignmentStartsOnRef_0Based[i]+1, bwaMemAlignment.getRefEnd());
             final AlignmentInterval alignmentInterval = new AlignmentInterval(referenceInterval, alignmentStartsOnTig_0BasedInclusive[i]+1, alignmentEndsOnTig_0BasedExclusive[i],
                     strandedness[i] ? cigars[i] : CigarUtils.invertCigar(cigars[i]),
-                    strandedness[i], Math.max(SAMRecord.NO_MAPPING_QUALITY, bwaMemAlignment.getMapQual()), bwaMemAlignment.getNMismatches(), bwaMemAlignment.getAlignerScore(), AlnModType.NONE);
+                    strandedness[i], Math.max(SAMRecord.NO_MAPPING_QUALITY, bwaMemAlignment.getMapQual()), bwaMemAlignment.getNMismatches(), bwaMemAlignment.getAlignerScore(), ContigAlignmentsModifier.AlnModType.NONE);
             data[i] = new Object[]{bwaMemAlignment, referenceInterval, strandedness[i] ? cigars[i] : CigarUtils.invertCigar(cigars[i]),
                     strandedness[i], alignmentStartsOnTig_0BasedInclusive[i]+1, alignmentEndsOnTig_0BasedExclusive[i], seqLen[i], mapQualForBwaMemAlgn[i], alignmentInterval};
         }
@@ -366,7 +366,7 @@ public class AlignmentIntervalUnitTest extends GATKBaseTest {
         final Tuple2<Integer, Integer> noOverlap = new Tuple2<>(-1,-1);
 
         SimpleInterval alignmentRefSpan = new SimpleInterval("chr1",4938770,4939497);
-        AlignmentInterval alignment = new AlignmentInterval(alignmentRefSpan, 1,728, TextCigarCodec.decode("728M61S"),true, 60, 0, 728, AlnModType.NONE);
+        AlignmentInterval alignment = new AlignmentInterval(alignmentRefSpan, 1,728, TextCigarCodec.decode("728M61S"),true, 60, 0, 728, ContigAlignmentsModifier.AlnModType.NONE);
         SimpleInterval otherRefSpan = new SimpleInterval("chr2", 4938770, 4939497);
         data.add(new Object[]{alignment, otherRefSpan, noOverlap});
 
@@ -378,20 +378,20 @@ public class AlignmentIntervalUnitTest extends GATKBaseTest {
         data.add(new Object[]{alignment, otherRefSpan, readInterval});
 
         alignmentRefSpan = new SimpleInterval("chr1",9170350,9171390);
-        alignment = new AlignmentInterval(alignmentRefSpan, 1,1041, TextCigarCodec.decode("1041M1298H"),false, 60, 4, 1021, AlnModType.NONE);
+        alignment = new AlignmentInterval(alignmentRefSpan, 1,1041, TextCigarCodec.decode("1041M1298H"),false, 60, 4, 1021, ContigAlignmentsModifier.AlnModType.NONE);
         otherRefSpan = new SimpleInterval("chr1",934806,935261);
         data.add(new Object[]{alignment, otherRefSpan, noOverlap});
 
 
 
         alignmentRefSpan = new SimpleInterval("chr1",66659809,66660176);
-        alignment = new AlignmentInterval(alignmentRefSpan, 1,354, TextCigarCodec.decode("124M10D106M3D16M2I75M3D31M241H"),true, 60, 35, 185, AlnModType.NONE);
+        alignment = new AlignmentInterval(alignmentRefSpan, 1,354, TextCigarCodec.decode("124M10D106M3D16M2I75M3D31M241H"),true, 60, 35, 185, ContigAlignmentsModifier.AlnModType.NONE);
         otherRefSpan = new SimpleInterval("chr1",66659958,66660262);
         readInterval = new Tuple2<>(140,354);
         data.add(new Object[]{alignment, otherRefSpan, readInterval});
 
         alignmentRefSpan = new SimpleInterval("chr1",156328046,156328757);
-        alignment = new AlignmentInterval(alignmentRefSpan, 1,712, TextCigarCodec.decode("712M444S"),false, 60, 2, 702, AlnModType.NONE);
+        alignment = new AlignmentInterval(alignmentRefSpan, 1,712, TextCigarCodec.decode("712M444S"),false, 60, 2, 702, ContigAlignmentsModifier.AlnModType.NONE);
         otherRefSpan = new SimpleInterval("chr1",156327744,156328331);
         readInterval = new Tuple2<>(427,712);
         data.add(new Object[]{alignment, otherRefSpan, readInterval});
