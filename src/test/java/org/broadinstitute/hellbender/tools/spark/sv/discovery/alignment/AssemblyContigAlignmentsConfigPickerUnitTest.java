@@ -2,7 +2,6 @@ package org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment;
 
 import htsjdk.samtools.TextCigarCodec;
 import org.broadinstitute.hellbender.engine.spark.SparkContextFactory;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.*;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.GATKBaseTest;
 import org.testng.annotations.DataProvider;
@@ -11,11 +10,11 @@ import org.testng.annotations.Test;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.FilterLongReadAlignmentsSAMSpark.getCanonicalChromosomes;
+import static org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AssemblyContigAlignmentsConfigPicker.getCanonicalChromosomes;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class FilterLongReadAlignmentsSAMSparkUnitTest extends GATKBaseTest {
+public class AssemblyContigAlignmentsConfigPickerUnitTest extends GATKBaseTest {
 
     private static final Set<String> canonicalChromosomes = getCanonicalChromosomes(null, null);
 
@@ -71,15 +70,15 @@ public class FilterLongReadAlignmentsSAMSparkUnitTest extends GATKBaseTest {
                                 final int expectedConfigurationCount,
                                 final int expectedAICount) {
 
-        final double scoreOne = FilterLongReadAlignmentsSAMSpark.computeScoreOfConfiguration(configuration, canonicalChromosomes, 60);
-        final double equallyGoodOrBetterScore = FilterLongReadAlignmentsSAMSpark.computeScoreOfConfiguration(configurationEquallyGoodOrBetter, canonicalChromosomes, 60);
+        final double scoreOne = AssemblyContigAlignmentsConfigPicker.computeScoreOfConfiguration(configuration, canonicalChromosomes, 60);
+        final double equallyGoodOrBetterScore = AssemblyContigAlignmentsConfigPicker.computeScoreOfConfiguration(configurationEquallyGoodOrBetter, canonicalChromosomes, 60);
         assertTrue( scoreOne < equallyGoodOrBetterScore || scoreOne - equallyGoodOrBetterScore <= Math.ulp(equallyGoodOrBetterScore));
 
-        assertEquals(FilterLongReadAlignmentsSAMSpark.pickBestConfigurations(contig, canonicalChromosomes, 0.0).size(), expectedConfigurationCount);
+        assertEquals(AssemblyContigAlignmentsConfigPicker.pickBestConfigurations(contig, canonicalChromosomes, 0.0).size(), expectedConfigurationCount);
 
         if (expectedConfigurationCount == 1) {
             final AlignedContig tig =
-                    FilterLongReadAlignmentsSAMSpark.filterAndSplitGappedAI(
+                    AssemblyContigAlignmentsConfigPicker.filterAndSplitGappedAI(
                             SparkContextFactory.getTestSparkContext().parallelize(Collections.singletonList(contig))
                             , null, null, 0.0).collect().get(0);
             assertEquals(tig.alignmentIntervals.size(), expectedAICount,

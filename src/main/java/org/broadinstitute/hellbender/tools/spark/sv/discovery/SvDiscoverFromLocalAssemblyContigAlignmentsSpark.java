@@ -21,8 +21,8 @@ import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
 import org.broadinstitute.hellbender.engine.spark.GATKSparkTool;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AlignedContig;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AssemblyContigAlignmentsConfigPicker;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AssemblyContigWithFineTunedAlignments;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.FilterLongReadAlignmentsSAMSpark;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.inference.*;
 import org.broadinstitute.hellbender.tools.spark.sv.utils.SVFileUtils;
 import org.broadinstitute.hellbender.tools.spark.sv.utils.SVUtils;
@@ -130,7 +130,8 @@ public final class SvDiscoverFromLocalAssemblyContigAlignmentsSpark extends GATK
         final String sampleId = SVUtils.getSampleId(headerForReads);
 
         final EnumMap<RawTypes, JavaRDD<AssemblyContigWithFineTunedAlignments>> contigsByPossibleRawTypes =
-                preprocess(reads, headerBroadcast, broadcastSequenceDictionary, nonCanonicalChromosomeNamesFile, outputDir, writeSAMFiles, localLogger);
+                preprocess(reads, headerBroadcast, broadcastSequenceDictionary, nonCanonicalChromosomeNamesFile,
+                        outputDir, writeSAMFiles, localLogger);
 
         dispatchJobs(sampleId, outputDir, contigsByPossibleRawTypes, referenceMultiSourceBroadcast, broadcastSequenceDictionary, localLogger);
     }
@@ -151,8 +152,8 @@ public final class SvDiscoverFromLocalAssemblyContigAlignmentsSpark extends GATK
 
         // filter alignments and split the gaps, hence the name "reconstructed"
         final JavaRDD<AlignedContig> contigsWithChimericAlignmentsReconstructed =
-                FilterLongReadAlignmentsSAMSpark
-                        .filterByScore(reads, headerBroadcast.getValue(),
+                AssemblyContigAlignmentsConfigPicker
+                        .parseIntoOptimallyCoveredContig(reads, headerBroadcast.getValue(),
                                        nonCanonicalChromosomeNamesFile, 0.0, localLogger)
                         .filter(lr -> lr.alignmentIntervals.size() > 1).cache();
         localLogger.info( contigsWithChimericAlignmentsReconstructed.count() +
