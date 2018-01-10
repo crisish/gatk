@@ -16,7 +16,8 @@ import org.apache.spark.broadcast.Broadcast;
 import org.broadinstitute.hellbender.engine.datasources.ReferenceMultiSource;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.exceptions.UserException;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.*;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.AnnotatedVariantProducer;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.SvDiscoveryDataBundle;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.*;
 import org.broadinstitute.hellbender.tools.spark.sv.utils.GATKSVVCFConstants;
 import org.broadinstitute.hellbender.tools.spark.sv.utils.SVVCFWriter;
@@ -48,22 +49,24 @@ public final class CpxVariantDetector implements VariantDetectorFromLocalAssembl
 
 
     @Override
-    public void inferSvAndWriteVCF(final String vcfOutputFileName, final String sampleId,
-                                   final JavaRDD<AssemblyContigWithFineTunedAlignments> localAssemblyContigs,
-                                   final Broadcast<ReferenceMultiSource> broadcastReference,
-                                   final Broadcast<SAMSequenceDictionary> broadcastSequenceDictionary,
-                                   final Logger toolLogger) {
+    public void inferSvAndWriteVCF(final JavaRDD<AssemblyContigWithFineTunedAlignments> assemblyContigs,
+                                   final SvDiscoveryDataBundle svDiscoveryDataBundle) {
+
+        final Broadcast<ReferenceMultiSource> referenceBroadcast = svDiscoveryDataBundle.referenceBroadcast;
+        final Broadcast<SAMSequenceDictionary> referenceSequenceDictionaryBroadcast = svDiscoveryDataBundle.referenceSequenceDictionaryBroadcast;
+        final String outputPath = svDiscoveryDataBundle.outputPath;
+        final Logger toolLogger = svDiscoveryDataBundle.toolLogger;
 
         final JavaRDD<AnnotatedContig> annotatedContigs =
-                localAssemblyContigs.map(tig -> new AnnotatedContig(tig, broadcastSequenceDictionary.getValue()));
+                assemblyContigs.map(tig -> new AnnotatedContig(tig, referenceSequenceDictionaryBroadcast.getValue()));
 
-        SVVCFWriter.writeVCF(annotatedContigs.map(tig -> tig.toVariantContext(broadcastReference.getValue())).collect(),
-                vcfOutputFileName, broadcastSequenceDictionary.getValue(), toolLogger);
+        SVVCFWriter.writeVCF(annotatedContigs.map(tig -> tig.toVariantContext(referenceBroadcast.getValue())).collect(),
+                outputPath, referenceSequenceDictionaryBroadcast.getValue(), toolLogger);
 
         if (DEBUG_OUTPUT) {
             try {
                 // for easier view when debugging, will be taken out in the final commit.
-                Files.write(Paths.get(Paths.get(vcfOutputFileName).getParent().toAbsolutePath().toString() + "/cpxEvents.txt"),
+                Files.write(Paths.get(Paths.get(outputPath).getParent().toAbsolutePath().toString() + "/cpxEvents.txt"),
                         () -> annotatedContigs
                                 .sortBy(tig -> tig.tigWithInsMappings.getSourceContig().contigName, true, 1)
                                 .map(annotatedContig -> (CharSequence) annotatedContig.toString())

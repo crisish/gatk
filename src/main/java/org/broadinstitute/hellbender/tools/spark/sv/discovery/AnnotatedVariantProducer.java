@@ -86,15 +86,15 @@ public class AnnotatedVariantProducer implements Serializable {
      * @param sampleId                          sample identifier of the current sample
      * @throws IOException                      due to read operations on the reference
      */
-    static VariantContext produceAnnotatedVcFromInferredTypeAndRefLocations(final SimpleInterval refLoc, final int end,
-                                                                            final BreakpointComplications breakpointComplications,
-                                                                            final SvType inferredType,
-                                                                            final byte[] altHaplotypeSeq,
-                                                                            final Iterable<ChimericAlignment> contigAlignments,
-                                                                            final Broadcast<ReferenceMultiSource> broadcastReference,
-                                                                            final Broadcast<SAMSequenceDictionary> broadcastSequenceDictionary,
-                                                                            final Broadcast<SVIntervalTree<VariantContext>> broadcastCNVCalls,
-                                                                            final String sampleId)
+    public static VariantContext produceAnnotatedVcFromInferredTypeAndRefLocations(final SimpleInterval refLoc, final int end,
+                                                                                   final BreakpointComplications breakpointComplications,
+                                                                                   final SvType inferredType,
+                                                                                   final byte[] altHaplotypeSeq,
+                                                                                   final Iterable<ChimericAlignment> contigAlignments,
+                                                                                   final Broadcast<ReferenceMultiSource> broadcastReference,
+                                                                                   final Broadcast<SAMSequenceDictionary> broadcastSequenceDictionary,
+                                                                                   final Broadcast<SVIntervalTree<VariantContext>> broadcastCNVCalls,
+                                                                                   final String sampleId)
             throws IOException {
 
         final int applicableEnd = end < 0 ? refLoc.getEnd() : end; // BND formatted variant shouldn't have END
@@ -239,11 +239,11 @@ public class AnnotatedVariantProducer implements Serializable {
         return attributeMap;
     }
 
-    static VariantContext annotateWithImpreciseEvidenceLinks(final VariantContext variant,
-                                                             final PairedStrandedIntervalTree<EvidenceTargetLink> evidenceTargetLinks,
-                                                             final SAMSequenceDictionary referenceSequenceDictionary,
-                                                             final ReadMetadata metadata,
-                                                             final int defaultUncertainty) {
+    public static VariantContext annotateWithImpreciseEvidenceLinks(final VariantContext variant,
+                                                                    final PairedStrandedIntervalTree<EvidenceTargetLink> evidenceTargetLinks,
+                                                                    final SAMSequenceDictionary referenceSequenceDictionary,
+                                                                    final ReadMetadata metadata,
+                                                                    final int defaultUncertainty) {
         if (variant.getStructuralVariantType() == StructuralVariantType.DEL) {
             SVContext svc = SVContext.of(variant);
             final int padding = (metadata == null) ? defaultUncertainty : (metadata.getMaxMedianFragmentSize() / 2);

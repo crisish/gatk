@@ -5,6 +5,7 @@ import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMFlag;
 import htsjdk.samtools.SAMReadGroupRecord;
 import htsjdk.samtools.SAMSequenceDictionary;
+import htsjdk.variant.variantcontext.VariantContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.spark.api.java.JavaRDD;
@@ -14,6 +15,7 @@ import org.broadinstitute.barclay.argparser.*;
 import org.broadinstitute.barclay.help.DocumentedFeature;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.programgroups.StructuralVariantDiscoveryProgramGroup;
+import org.broadinstitute.hellbender.engine.datasources.ReferenceMultiSource;
 import org.broadinstitute.hellbender.engine.spark.GATKSparkTool;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.*;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.*;
@@ -23,6 +25,7 @@ import org.broadinstitute.hellbender.tools.spark.sv.evidence.AlignedAssemblyOrEx
 import org.broadinstitute.hellbender.tools.spark.sv.evidence.EvidenceTargetLink;
 import org.broadinstitute.hellbender.tools.spark.sv.evidence.FindBreakpointEvidenceSpark;
 import org.broadinstitute.hellbender.tools.spark.sv.utils.PairedStrandedIntervalTree;
+import org.broadinstitute.hellbender.tools.spark.sv.utils.SVIntervalTree;
 import org.broadinstitute.hellbender.tools.spark.sv.utils.SVUtils;
 import org.broadinstitute.hellbender.utils.SequenceDictionaryUtils;
 import org.broadinstitute.hellbender.utils.Utils;
@@ -166,15 +169,16 @@ public class StructuralVariationDiscoveryPipelineSpark extends GATKSparkTool {
         DiscoverVariantsFromContigAlignmentsSAMSpark.discoverVariantsAndWriteVCF(svDiscoveryDataBundle, parsedAlignments);
 
         if ( expVariantsOutDir != null ) {
-
-            experimentalInterpretation(ctx, assembledEvidenceResults, svDiscoveryDataBundle);
+            svDiscoveryDataBundle.updateOutputPath(expVariantsOutDir);
+            experimentalInterpretation(ctx, assembledEvidenceResults, svDiscoveryDataBundle, evidenceAndAssemblyArgs.crossContigsToIgnoreFile);
         }
     }
 
     // hook up prototyping breakpoint and type inference tool
     private void experimentalInterpretation(final JavaSparkContext ctx,
                                             final FindBreakpointEvidenceSpark.AssembledEvidenceResults assembledEvidenceResults,
-                                            final SvDiscoveryDataBundle svDiscoveryDataBundle) {
+                                            final SvDiscoveryDataBundle svDiscoveryDataBundle,
+                                            final String nonCanonicalChromosomeNamesFile) {
 
         if ( expVariantsOutDir == null )
             return;
@@ -194,14 +198,21 @@ public class StructuralVariationDiscoveryPipelineSpark extends GATKSparkTool {
                         .collect(Collectors.toList());
         JavaRDD<GATKRead> reads = ctx.parallelize(readsList);
 
+        final String sampleId = svDiscoveryDataBundle.sampleId;
+        final Broadcast<ReferenceMultiSource> referenceBroadcast = svDiscoveryDataBundle.referenceBroadcast;
+        final Broadcast<SVIntervalTree<VariantContext>> cnvCallsBroadcast = svDiscoveryDataBundle.cnvCallsBroadcast;
+
+        final SvDiscoveryDataBundle updatedSvDiscoveryDataBundle =
+                new SvDiscoveryDataBundle(sampleId, svDiscoveryDataBundle.discoverStageArgs, expVariantsOutDir,
+                        svDiscoveryDataBundle.metadata, svDiscoveryDataBundle.assembledIntervals,
+                        svDiscoveryDataBundle.evidenceTargetLinks, reads, svDiscoveryDataBundle.toolLogger,
+                        referenceBroadcast, referenceSequenceDictionaryBroadcast, headerBroadcast, cnvCallsBroadcast);
+
         EnumMap<AssemblyContigAlignmentSignatureClassifier.RawTypes, JavaRDD<AssemblyContigWithFineTunedAlignments>>
                 contigsByPossibleRawTypes =
-                SvDiscoverFromLocalAssemblyContigAlignmentsSpark.preprocess(reads, headerBroadcast,
-                        referenceSequenceDictionaryBroadcast, evidenceAndAssemblyArgs.crossContigsToIgnoreFile,
-                        expVariantsOutDir, true, localLogger);
+                SvDiscoverFromLocalAssemblyContigAlignmentsSpark.preprocess(updatedSvDiscoveryDataBundle, nonCanonicalChromosomeNamesFile,true);
 
-        SvDiscoverFromLocalAssemblyContigAlignmentsSpark.dispatchJobs(svDiscoveryDataBundle.sampleId, expVariantsOutDir,
-                contigsByPossibleRawTypes, svDiscoveryDataBundle.referenceBroadcast, referenceSequenceDictionaryBroadcast, localLogger);
+        SvDiscoverFromLocalAssemblyContigAlignmentsSpark.dispatchJobs(contigsByPossibleRawTypes, updatedSvDiscoveryDataBundle);
 
         // TODO: 11/30/17 add EXTERNAL_CNV_CALLS annotation to the variants called here
     }
@@ -276,7 +287,7 @@ public class StructuralVariationDiscoveryPipelineSpark extends GATKSparkTool {
                                     .collect(Collectors.toList()))
                     .filter(list -> !list.isEmpty())
                     .map(forOneContig ->
-                            DiscoverVariantsFromContigAlignmentsSAMSpark.
+                            SvDiscoverFromLocalAssemblyContigAlignmentsSpark.
                                     SAMFormattedContigAlignmentParser.
                                     parseReadsAndOptionallySplitGappedAlignments(forOneContig,
                                             StructuralVariationDiscoveryArgumentCollection

@@ -7,7 +7,10 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.broadcast.Broadcast;
 import org.broadinstitute.hellbender.engine.datasources.ReferenceMultiSource;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.*;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.AnnotatedVariantProducer;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.BreakEndVariantType;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.SimpleSVType;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.SvDiscoveryDataBundle;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AlignedContig;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AlignmentInterval;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AssemblyContigWithFineTunedAlignments;
@@ -17,7 +20,6 @@ import org.broadinstitute.hellbender.utils.Utils;
 import scala.Tuple2;
 import scala.Tuple3;
 
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -26,42 +28,46 @@ import java.util.stream.Collectors;
 
 public final class SimpleStrandSwitchVariantDetector implements VariantDetectorFromLocalAssemblyContigAlignments {
 
-    @SuppressWarnings("unchecked")
-    private static final List<String> EMPTY_INSERTION_MAPPINGS = Collections.EMPTY_LIST;
 
     static final int MORE_RELAXED_ALIGNMENT_MIN_LENGTH = 30;
     static final int MORE_RELAXED_ALIGNMENT_MIN_MQ = 20;
 
     @Override
-    public void inferSvAndWriteVCF(final String vcfOutputFileName, final String sampleId,
-                                   final JavaRDD<AssemblyContigWithFineTunedAlignments> contigs,
-                                   final Broadcast<ReferenceMultiSource> broadcastReference,
-                                   final Broadcast<SAMSequenceDictionary> broadcastSequenceDictionary,
-                                   final Logger toolLogger) {
+    public void inferSvAndWriteVCF(final JavaRDD<AssemblyContigWithFineTunedAlignments> assemblyContigs,
+                                   final SvDiscoveryDataBundle svDiscoveryDataBundle) {
 
-        toolLogger.info(contigs.count() + " chimeras indicating either 1) simple strand-switch breakpoints, or 2) inverted duplication.");
+        final Broadcast<ReferenceMultiSource> referenceBroadcast = svDiscoveryDataBundle.referenceBroadcast;
+        final Broadcast<SAMSequenceDictionary> referenceSequenceDictionaryBroadcast = svDiscoveryDataBundle.referenceSequenceDictionaryBroadcast;
+        final String sampleId = svDiscoveryDataBundle.sampleId;
+        final String outputPath = svDiscoveryDataBundle.outputPath;
+        final Logger toolLogger = svDiscoveryDataBundle.toolLogger;
+
+        svDiscoveryDataBundle.toolLogger.info(assemblyContigs.count() +
+                " chimeras indicating either 1) simple strand-switch breakpoints, or 2) inverted duplication.");
 
         // TODO: 11/23/17 take insertion mappings from the input and add them to VC
         // split between suspected inv dup VS strand-switch breakpoints
         // logic flow: split the input reads into two classes--those judged by IsLikelyInvertedDuplication are likely invdup and those aren't
         //             finally send the two split reads down different path, one for inv dup and one for BND records
         final Tuple2<JavaRDD<AlignedContig>, JavaRDD<AlignedContig>> invDupAndStrandSwitchBreakpoints =
-                RDDUtils.split(contigs.map( AssemblyContigWithFineTunedAlignments::getSourceContig ),
+                RDDUtils.split(assemblyContigs.map( AssemblyContigWithFineTunedAlignments::getSourceContig ),
                         contig -> ChimericAlignment.isLikelyInvertedDuplication(contig.alignmentIntervals.get(0),
                                 contig.alignmentIntervals.get(1)), false);
 
         final JavaRDD<VariantContext> simpleStrandSwitchBkpts =
-                dealWithSimpleStrandSwitchBkpts(invDupAndStrandSwitchBreakpoints._2, broadcastReference, broadcastSequenceDictionary, toolLogger, sampleId);
+                dealWithSimpleStrandSwitchBkpts(invDupAndStrandSwitchBreakpoints._2, referenceBroadcast,
+                        referenceSequenceDictionaryBroadcast, toolLogger, sampleId);
 
-        SVVCFWriter.writeVCF(simpleStrandSwitchBkpts.collect(), vcfOutputFileName.replace(".vcf", "_simpleSS.vcf"),
-                broadcastSequenceDictionary.getValue(), toolLogger);
+        SVVCFWriter.writeVCF(simpleStrandSwitchBkpts.collect(), outputPath.replace(".vcf", "_simpleSS.vcf"),
+                referenceSequenceDictionaryBroadcast.getValue(), toolLogger);
         simpleStrandSwitchBkpts.unpersist();
 
         final JavaRDD<VariantContext> invDups =
-                dealWithSuspectedInvDup(invDupAndStrandSwitchBreakpoints._1, broadcastReference, broadcastSequenceDictionary, toolLogger, sampleId);
+                dealWithSuspectedInvDup(invDupAndStrandSwitchBreakpoints._1, referenceBroadcast,
+                        referenceSequenceDictionaryBroadcast, toolLogger, sampleId);
 
-        SVVCFWriter.writeVCF(invDups.collect(), vcfOutputFileName.replace(".vcf", "_invDup.vcf"),
-                broadcastSequenceDictionary.getValue(), toolLogger);
+        SVVCFWriter.writeVCF(invDups.collect(), outputPath.replace(".vcf", "_invDup.vcf"),
+                referenceSequenceDictionaryBroadcast.getValue(), toolLogger);
     }
 
     // =================================================================================================================
@@ -170,7 +176,7 @@ public final class SimpleStrandSwitchVariantDetector implements VariantDetectorF
                 .groupByKey()
                 .flatMapToPair(SimpleStrandSwitchVariantDetector::inferInvDupRange)
                 .map(noveltyTypeAndAltSeqAndEvidence ->
-                        DiscoverVariantsFromContigAlignmentsSAMSpark
+                        InsDelVariantDetector
                                 .annotateVariant(noveltyTypeAndAltSeqAndEvidence._1._1(),
                                         noveltyTypeAndAltSeqAndEvidence._1._2(),
                                         noveltyTypeAndAltSeqAndEvidence._1._3(),

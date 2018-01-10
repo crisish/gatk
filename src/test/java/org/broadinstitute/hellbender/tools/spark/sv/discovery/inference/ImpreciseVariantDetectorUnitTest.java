@@ -1,4 +1,4 @@
-package org.broadinstitute.hellbender.tools.spark.sv.discovery;
+package org.broadinstitute.hellbender.tools.spark.sv.discovery.inference;
 
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.VariantContextBuilder;
@@ -9,6 +9,7 @@ import org.broadinstitute.hellbender.GATKBaseTest;
 import org.broadinstitute.hellbender.engine.datasources.ReferenceMultiSource;
 import org.broadinstitute.hellbender.engine.datasources.ReferenceWindowFunctions;
 import org.broadinstitute.hellbender.tools.spark.sv.StructuralVariationDiscoveryArgumentCollection;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.SimpleSVType;
 import org.broadinstitute.hellbender.tools.spark.sv.evidence.EvidenceTargetLink;
 import org.broadinstitute.hellbender.tools.spark.sv.evidence.ReadMetadata;
 import org.broadinstitute.hellbender.tools.spark.sv.utils.GATKSVVCFConstants;
@@ -27,10 +28,10 @@ import java.util.List;
 
 import static org.mockito.Mockito.when;
 
-public class DiscoverVariantsFromContigAlignmentsSAMSparkUnitTest extends GATKBaseTest {
+public class ImpreciseVariantDetectorUnitTest extends GATKBaseTest {
 
 
-    private final Logger localLogger = LogManager.getLogger(DiscoverVariantsFromContigAlignmentsSAMSparkUnitTest.class);
+    private final Logger localLogger = LogManager.getLogger(ImpreciseVariantDetectorUnitTest.class);
     private static String twoBitRefURL = publicTestDir + "large/human_g1k_v37.20.21.2bit";
 
     @DataProvider(name = "evidenceTargetLinksAndVariants")
@@ -130,7 +131,7 @@ public class DiscoverVariantsFromContigAlignmentsSAMSparkUnitTest extends GATKBa
         etls.forEach(e -> evidenceTree.put(e.getPairedStrandedIntervals(), e));
 
         final List<VariantContext> processedVariantContexts =
-                DiscoverVariantsFromContigAlignmentsSAMSpark.processEvidenceTargetLinks(inputVariants, evidenceTree, metadata, referenceMultiSource, params, localLogger
+                ImpreciseVariantDetector.processEvidenceTargetLinks(inputVariants, evidenceTree, metadata, referenceMultiSource, params, localLogger
                 );
 
         VariantContextTestUtils.assertEqualVariants(processedVariantContexts, expectedVariants);

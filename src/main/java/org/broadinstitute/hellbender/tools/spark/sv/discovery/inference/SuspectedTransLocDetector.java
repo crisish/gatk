@@ -7,51 +7,58 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.broadcast.Broadcast;
 import org.broadinstitute.hellbender.engine.datasources.ReferenceMultiSource;
-import org.broadinstitute.hellbender.tools.spark.sv.discovery.*;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.AnnotatedVariantProducer;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.BreakEndVariantType;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.SvDiscoveryDataBundle;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AlignedContig;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AssemblyContigWithFineTunedAlignments;
 import org.broadinstitute.hellbender.tools.spark.sv.utils.SVVCFWriter;
 import scala.Tuple2;
 
-import java.util.Collections;
-import java.util.List;
-
 public final class SuspectedTransLocDetector implements VariantDetectorFromLocalAssemblyContigAlignments {
 
-    @SuppressWarnings("unchecked")
-    private static final List<String> EMPTY_INSERTION_MAPPINGS = Collections.EMPTY_LIST;
 
     @Override
-    public void inferSvAndWriteVCF(final String vcfOutputFileName, final String sampleId,
-                                   final JavaRDD<AssemblyContigWithFineTunedAlignments> localAssemblyContigs,
-                                   final Broadcast<ReferenceMultiSource> broadcastReference,
-                                   final Broadcast<SAMSequenceDictionary> refSequenceDictionary,
-                                   final Logger toolLogger) {
-        toolLogger.info(localAssemblyContigs.count() + " chimeras indicating strand-switch-less breakpoints");
+    public void inferSvAndWriteVCF(final JavaRDD<AssemblyContigWithFineTunedAlignments> assemblyContigs,
+                                   final SvDiscoveryDataBundle svDiscoveryDataBundle) {
+
+        final Broadcast<ReferenceMultiSource> referenceBroadcast = svDiscoveryDataBundle.referenceBroadcast;
+        final Broadcast<SAMSequenceDictionary> referenceSequenceDictionaryBroadcast = svDiscoveryDataBundle.referenceSequenceDictionaryBroadcast;
+        final String sampleId = svDiscoveryDataBundle.sampleId;
+        final String outputPath = svDiscoveryDataBundle.outputPath;
+        final Logger toolLogger = svDiscoveryDataBundle.toolLogger;
+
+        toolLogger.info(assemblyContigs.count() + " chimeras indicating strand-switch-less breakpoints");
 
         // TODO: 11/23/17 take insertion mappings from the input and add them to VC
         final JavaPairRDD<ChimericAlignment, byte[]> chimeraAndSequence =
-                localAssemblyContigs
+                assemblyContigs
                         .filter(decoratedTig ->
                                 SimpleStrandSwitchVariantDetector.splitPairStrongEnoughEvidenceForCA(
                                                 decoratedTig.getSourceContig().alignmentIntervals.get(0), decoratedTig.getSourceContig().alignmentIntervals.get(1),
                                         SimpleStrandSwitchVariantDetector.MORE_RELAXED_ALIGNMENT_MIN_MQ,
                                         0))
                         .mapToPair(decoratedTig ->
-                                convertAlignmentIntervalsToChimericAlignment(decoratedTig.getSourceContig(), refSequenceDictionary.getValue())).cache();
+                                convertAlignmentIntervalsToChimericAlignment(decoratedTig.getSourceContig(),
+                                        referenceSequenceDictionaryBroadcast.getValue())).cache();
 
         final JavaRDD<VariantContext> annotatedBNDs =
                 chimeraAndSequence
-                        .mapToPair(pair -> new Tuple2<>(new NovelAdjacencyReferenceLocations(pair._1, pair._2, refSequenceDictionary.getValue()), pair._1))
+                        .mapToPair(pair -> new Tuple2<>(new NovelAdjacencyReferenceLocations(pair._1, pair._2,
+                                referenceSequenceDictionaryBroadcast.getValue()), pair._1))
                         .groupByKey()
-                        .mapToPair(noveltyAndEvidence -> inferBNDType(noveltyAndEvidence, broadcastReference.getValue(), refSequenceDictionary.getValue()))
+                        .mapToPair(noveltyAndEvidence -> inferBNDType(noveltyAndEvidence,
+                                referenceBroadcast.getValue(),
+                                referenceSequenceDictionaryBroadcast.getValue()))
                         .flatMap(noveltyTypeAndEvidence ->
                                 AnnotatedVariantProducer
                                         .produceAnnotatedBNDmatesVcFromNovelAdjacency(noveltyTypeAndEvidence._1,
-                                                noveltyTypeAndEvidence._2._1, noveltyTypeAndEvidence._2._2, broadcastReference, refSequenceDictionary, sampleId).iterator());
+                                                noveltyTypeAndEvidence._2._1, noveltyTypeAndEvidence._2._2,
+                                                referenceBroadcast,
+                                                referenceSequenceDictionaryBroadcast, sampleId).iterator());
 
-        SVVCFWriter.writeVCF(annotatedBNDs.collect(), vcfOutputFileName.replace(".vcf", "_transBND.vcf"),
-                refSequenceDictionary.getValue(), toolLogger);
+        SVVCFWriter.writeVCF(annotatedBNDs.collect(), outputPath.replace(".vcf", "_transBND.vcf"),
+                referenceSequenceDictionaryBroadcast.getValue(), toolLogger);
     }
 
     private static Tuple2<ChimericAlignment, byte[]> convertAlignmentIntervalsToChimericAlignment(final AlignedContig contig,

@@ -1,11 +1,11 @@
 package org.broadinstitute.hellbender.tools.spark.sv.discovery.inference;
 
-import htsjdk.samtools.SAMSequenceDictionary;
-import org.apache.logging.log4j.Logger;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.broadcast.Broadcast;
-import org.broadinstitute.hellbender.engine.datasources.ReferenceMultiSource;
+import org.broadinstitute.hellbender.tools.spark.sv.discovery.SvDiscoveryDataBundle;
 import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.AssemblyContigWithFineTunedAlignments;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * A base class for workflow of variant breakpoint detection from split alignments, variant type interpretation,
@@ -13,10 +13,9 @@ import org.broadinstitute.hellbender.tools.spark.sv.discovery.alignment.Assembly
  */
 interface VariantDetectorFromLocalAssemblyContigAlignments {
 
-    // TODO: 10/6/17 requires a ReferenceMultiSource and SAMSequenceDictionary at the same time because the 2bit reference gives a scrambled reference contig order (see #2037)
-    void inferSvAndWriteVCF(final String vcfOutputFileName, final String sampleId,
-                            final JavaRDD<AssemblyContigWithFineTunedAlignments> contigs,
-                            final Broadcast<ReferenceMultiSource> broadcastReference,
-                            final Broadcast<SAMSequenceDictionary> broadcastSequenceDictionary,
-                            final Logger toolLogger);
+    @SuppressWarnings("unchecked")
+    List<String> EMPTY_INSERTION_MAPPINGS = Collections.EMPTY_LIST;
+
+    void inferSvAndWriteVCF(final JavaRDD<AssemblyContigWithFineTunedAlignments> assemblyContigs,
+                            final SvDiscoveryDataBundle svDiscoveryDataBundle);
 }
