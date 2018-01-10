@@ -17,9 +17,7 @@ import org.broadinstitute.hellbender.utils.gcs.BucketUtils;
 import org.broadinstitute.hellbender.utils.io.IOUtils;
 import scala.Tuple2;
 
-import java.io.BufferedOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.*;
 
 /** This LocalAssemblyHandler aligns assembly contigs with BWA, along with some optional writing of intermediate results. */
@@ -67,7 +65,18 @@ public final class FermiLiteAssemblyHandler implements FindBreakpointEvidenceSpa
         }
 
         // patch up the assembly using read pairs to link contigs
-        final FermiLiteAssembly assembly = reviseAssembly(initialAssembly, assemblyName, readsList);
+        final FermiLiteAssembly assembly;
+        if ( fastqDir == null ) {
+                assembly = reviseAssembly(initialAssembly, assemblyName, readsList, null);
+        } else {
+            final String detailsFile = String.format("%s/%s.details", fastqDir, assemblyName);
+            try ( final Writer writer = new BufferedWriter(new OutputStreamWriter(BucketUtils.createFile(detailsFile))) ) {
+                assembly = reviseAssembly(initialAssembly, assemblyName, readsList, writer);
+            }
+            catch ( final IOException ioe ) {
+                throw new GATKException("Can't write "+detailsFile, ioe);
+            }
+        }
 
         // record the assembly as a GFA, if requested
         if ( fastqDir != null && writeGFAs ) {
@@ -98,7 +107,8 @@ public final class FermiLiteAssemblyHandler implements FindBreakpointEvidenceSpa
     @VisibleForTesting
     static FermiLiteAssembly reviseAssembly( final FermiLiteAssembly assembly,
                                              final String assemblyName,
-                                             final List<SVFastqUtils.FastqRead> readsList ) {
+                                             final List<SVFastqUtils.FastqRead> readsList,
+                                             final Writer writer ) {
         final int nContigs = assembly.getNContigs();
         if ( nContigs == 0 ) return assembly;
 
@@ -134,6 +144,60 @@ public final class FermiLiteAssemblyHandler implements FindBreakpointEvidenceSpa
         }
         try { BucketUtils.deleteFile(imageFile); }
         catch ( final IOException ioe ) { throw new GATKException("unable to delete " + imageFile, ioe); }
+
+        if ( writer != null ) {
+            try {
+                writer.write("Initial assembly:\n");
+                writer.write("id\tlen\tnReads\tseq\n");
+                final HashMap<FermiLiteAssembly.Contig, Integer> idMap = new HashMap<>(SVUtils.hashMapCapacity(nContigs));
+                int id = 0;
+                final List<FermiLiteAssembly.Contig> contigs = assembly.getContigs();
+                for ( final FermiLiteAssembly.Contig contig : contigs ) {
+                    idMap.put(contig, id++);
+                }
+                for ( final FermiLiteAssembly.Contig contig : contigs ) {
+                    final int contigId = idMap.get(contig);
+                    final String sequence = new String(contig.getSequence());
+                    writer.write(contigId + "\t" + sequence.length() + "\t" + contig.getNSupportingReads());
+                    writer.write(sequence.substring(0,30));
+                    writer.write("...");
+                    writer.write(sequence.substring(sequence.length()-30));
+                    writer.write('\n');
+                    for ( final FermiLiteAssembly.Connection connection : contig.getConnections() ) {
+                        final int targetId = idMap.get(connection.getTarget());
+                        final int overlapLen = connection.getOverlapLen();
+                        writer.write("\t" + (connection.isRC() ? "-" : "+") + contigId +
+                                "--(" + overlapLen + ")-->" +
+                                (connection.isTargetRC() ? "-" : "+") + targetId + "\n");
+                    }
+                    final int nReads = readsList.size();
+                    for ( int idx = 0; idx < nReads; idx += 2 ) {
+                        final List<BwaMemAlignment> alignList1 = alignments.get(idx);
+                        final List<BwaMemAlignment> alignList2 = alignments.get(idx + 1);
+                        for ( final BwaMemAlignment alignment1 : alignList1 ) {
+                            if ( SAMFlag.READ_UNMAPPED.isSet(alignment1.getSamFlag()) ) continue;
+                            for ( final BwaMemAlignment alignment2 : alignList2 ) {
+                                if ( SAMFlag.READ_UNMAPPED.isSet(alignment2.getSamFlag()) ) continue;
+                                if ( alignment1.getRefId() != contigId && alignment2.getRefId() != contigId ) continue;
+                                final boolean isRC1 = SAMFlag.READ_REVERSE_STRAND.isSet(alignment1.getSamFlag());
+                                // notice that the following flag is inverted -- we expect pairs to be on opposite strands
+                                final boolean isRC2 = !SAMFlag.READ_REVERSE_STRAND.isSet(alignment2.getSamFlag());
+                                if ( alignment1.getRefId() != alignment2.getRefId() || isRC1 != isRC2 ) {
+                                    writer.write("\t" + readsList.get(idx).getName() + "\t" +
+                                            (isRC1 ? "-" : "+") + alignment1.getRefId() + ":" + alignment1.getRefStart() +
+                                            "\t" + alignment1.getCigar() + "\t" +
+                                            (isRC2 ? "-" : "+") + alignment2.getRefId() + ":" + alignment2.getRefStart() +
+                                            "\t" + alignment2.getCigar() + "\n");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch ( final IOException ioe ) {
+                throw new GATKException("Can't write assembly details file for assembly "+assemblyName, ioe);
+            }
+        }
 
         // find read pairs that are NOT innies on the same contig (i.e., pairs that connect the graph of assembled contigs)
         // and count the number of pairs that corroborate each connection
@@ -196,10 +260,28 @@ public final class FermiLiteAssemblyHandler implements FindBreakpointEvidenceSpa
             return assembly;
         }
 
+        if ( writer != null ) {
+            try {
+                writer.write("\nJoining " + linkCounts.size() + " contig pairs:\n");
+            }
+            catch ( final IOException ioe ) {
+                throw new GATKException("Can't write assembly details file for assembly "+assemblyName, ioe);
+            }
+        }
         final List<FermiLiteAssembly.Contig> contigList = new ArrayList<>(nContigs);
         final Set<Integer> representedContigs = new HashSet<>(SVUtils.hashMapCapacity(nContigs));
         for ( final Map.Entry<Link, Integer> entry : linkCounts.entrySet() ) {
             final Link link = entry.getKey();
+            if ( writer != null ) {
+                try {
+                    writer.write("\t" + (link.isSourceRC() ? "-" : "+") + link.getSourceId() +
+                            "--(" + entry.getValue() + ")-->" +
+                            (link.isTargetRC() ? "-" : "+") + link.getTargetId() + "\n");
+                }
+                catch ( final IOException ioe ) {
+                    throw new GATKException("Can't write assembly details file for assembly "+assemblyName, ioe);
+                }
+            }
             final int overlapLen = entry.getValue();
             final FermiLiteAssembly.Contig sourceContig =
                     link.isSourceRC() ?
